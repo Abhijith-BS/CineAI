@@ -20,6 +20,7 @@ import type * as gemini from "../gemini.js";
 import type * as http from "../http.js";
 import type * as movies from "../movies.js";
 import type * as router from "../router.js";
+import type * as vertex from "../vertex.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   movies: typeof movies;
   router: typeof router;
+  vertex: typeof vertex;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

@@ -107,7 +107,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
                       <div>
                         <h4 className="text-sm font-semibold text-gray-300 mb-2">Movies:</h4>
                         <div className="grid grid-cols-3 gap-2">
-                          {chat.movies.slice(0, 3).map((movie) => (
+                          {chat.movies.slice(0, 12).map((movie) => (
                             <div key={movie._id} className="relative">
                               <MovieCard
                                 item={movie}
@@ -137,7 +137,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
                       <div>
                         <h4 className="text-sm font-semibold text-gray-300 mb-2">TV Shows:</h4>
                         <div className="grid grid-cols-3 gap-2">
-                          {chat.shows.slice(0, 3).map((show) => (
+                          {chat.shows.slice(0, 12).map((show) => (
                             <MovieCard
                               key={show._id}
                               item={show}
