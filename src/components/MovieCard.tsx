@@ -1,3 +1,6 @@
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+
 interface MovieCardProps {
   item: any;
   type: "movie" | "tv";
@@ -5,16 +8,60 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ item, type, onClick }: MovieCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const title = type === "movie" ? item.title : item.name;
   const releaseDate = type === "movie" ? item.releaseDate : item.firstAirDate;
   const posterUrl = item.posterPath 
     ? `https://image.tmdb.org/t/p/w500${item.posterPath}`
     : "/api/placeholder/300/450";
 
+  // Animate card entrance
+  useEffect(() => {
+    if (cardRef.current) {
+      gsap.from(cardRef.current, {
+        opacity: 0,
+        scale: 0.9,
+        y: 20,
+        duration: 0.6,
+        ease: "expo.out",
+        delay: Math.random() * 0.2, // Stagger cards randomly
+      });
+    }
+  }, []);
+
   return (
     <div 
-      className="group cursor-pointer transform transition-all duration-200 hover:scale-105"
-      onClick={onClick}
+      ref={cardRef}
+      className="group cursor-pointer"
+      onClick={(e) => {
+        // Click animation feedback
+        gsap.to(e.currentTarget, {
+          scale: 0.95,
+          duration: 0.1,
+          ease: "power2.in",
+          yoyo: true,
+          repeat: 1,
+        });
+        onClick();
+      }}
+      onMouseEnter={(e) => {
+        gsap.to(e.currentTarget, {
+          scale: 1.08,
+          y: -5,
+          rotationY: 2,
+          duration: 0.4,
+          ease: "power2.out",
+        });
+      }}
+      onMouseLeave={(e) => {
+        gsap.to(e.currentTarget, {
+          scale: 1,
+          y: 0,
+          rotationY: 0,
+          duration: 0.4,
+          ease: "power2.out",
+        });
+      }}
     >
       <div className="relative overflow-hidden rounded-lg bg-gray-800 aspect-[2/3]">
         <img
@@ -29,7 +76,25 @@ export function MovieCard({ item, type, onClick }: MovieCardProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
         
         {/* Rating Badge */}
-        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1">
+        <div 
+          className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1"
+          onMouseEnter={(e) => {
+            gsap.to(e.currentTarget, {
+              scale: 1.15,
+              backgroundColor: "rgba(168, 85, 247, 0.8)",
+              duration: 0.3,
+              ease: "power2.out",
+            });
+          }}
+          onMouseLeave={(e) => {
+            gsap.to(e.currentTarget, {
+              scale: 1,
+              backgroundColor: "rgba(0, 0, 0, 0.7)",
+              duration: 0.3,
+              ease: "power2.out",
+            });
+          }}
+        >
           <span className="text-yellow-400 text-xs font-semibold">
             ⭐ {item.voteAverage.toFixed(1)}
           </span>

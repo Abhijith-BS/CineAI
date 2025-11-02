@@ -1,7 +1,9 @@
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MovieCard } from "./MovieCard";
-import { useEffect } from "react";
+import { AnimatedHeading } from "./AnimatedHeading";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
 
 interface HomePageProps {
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
@@ -13,6 +15,8 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
   const trendingShows = useQuery(api.movies.getTrendingShows, { limit: 12 });
   const topRatedMovies = useQuery(api.movies.getTopRatedMovies, { limit: 12 });
   const populateSampleData = useAction(api.movies.populateSampleData);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionsRef = useRef<HTMLElement[]>([]);
 
   // Populate sample data if no content exists
   useEffect(() => {
@@ -21,26 +25,79 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
     }
   }, [trendingMovies, populateSampleData]);
 
+  // Animate page entrance and sections
+  useEffect(() => {
+    if (containerRef.current) {
+      // Animate container entrance
+      gsap.from(containerRef.current, {
+        opacity: 0,
+        y: 30,
+        duration: 1,
+        ease: "power4.out",
+        delay: 0.2,
+      });
+
+      // Animate sections with stagger
+      if (sectionsRef.current.length > 0) {
+        gsap.from(sectionsRef.current, {
+          opacity: 0,
+          y: 40,
+          duration: 0.8,
+          ease: "expo.out",
+          stagger: 0.15,
+          delay: 0.5,
+        });
+      }
+    }
+  }, []);
+
   const handleMovieClick = (movieId: string) => {
     setSelectedMovieId(movieId);
     setCurrentView("movie");
   };
 
   return (
-    <div className="space-y-12">
+    <div ref={containerRef} className="space-y-12">
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 p-8 md:p-12">
+      <section 
+        ref={(el) => {
+          if (el) sectionsRef.current[0] = el;
+        }}
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 p-8 md:p-12"
+      >
         <div className="relative z-10">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            Discover Movies with
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> AI</span>
-          </h1>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl">
+          <AnimatedHeading 
+            text="Discover Movies with AI"
+            className="mb-4"
+            showShimmer={true}
+          />
+          <p 
+            className="text-xl text-gray-300 mb-8 max-w-2xl"
+            style={{
+              animation: "fadeInUp 0.8s ease-out 1s both",
+            }}
+          >
             Chat with our AI to find the perfect movie or show. Just describe what you're in the mood for!
           </p>
           <button
             onClick={() => setCurrentView("chat")}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-8 rounded-full transition-all duration-200 transform hover:scale-105"
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl hover:shadow-purple-500/50"
+            onMouseEnter={(e) => {
+              gsap.to(e.currentTarget, {
+                scale: 1.1,
+                boxShadow: "0 20px 40px rgba(168, 85, 247, 0.5)",
+                duration: 0.3,
+                ease: "power2.out",
+              });
+            }}
+            onMouseLeave={(e) => {
+              gsap.to(e.currentTarget, {
+                scale: 1,
+                boxShadow: "0 0 0 rgba(168, 85, 247, 0)",
+                duration: 0.3,
+                ease: "power2.out",
+              });
+            }}
           >
             Start Chatting
           </button>
@@ -49,10 +106,16 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
       </section>
 
       {/* Trending Movies */}
-      <section>
+      <section
+        ref={(el) => {
+          if (el) sectionsRef.current[1] = el;
+        }}
+      >
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-          <span className="w-1 h-8 bg-gradient-to-b from-purple-400 to-pink-400 rounded-full mr-3"></span>
-          Trending Movies
+          <span className="w-1 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full mr-3 animate-pulse"></span>
+          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Trending Movies
+          </span>
         </h2>
         {trendingMovies ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -75,10 +138,16 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
       </section>
 
       {/* Top Rated Movies */}
-      <section>
+      <section
+        ref={(el) => {
+          if (el) sectionsRef.current[2] = el;
+        }}
+      >
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-          <span className="w-1 h-8 bg-gradient-to-b from-yellow-400 to-orange-400 rounded-full mr-3"></span>
-          Top Rated Movies
+          <span className="w-1 h-8 bg-gradient-to-b from-yellow-500 to-orange-500 rounded-full mr-3 animate-pulse"></span>
+          <span className="bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+            Top Rated Movies
+          </span>
         </h2>
         {topRatedMovies ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -101,10 +170,16 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
       </section>
 
       {/* Trending TV Shows */}
-      <section>
+      <section
+        ref={(el) => {
+          if (el) sectionsRef.current[3] = el;
+        }}
+      >
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
-          <span className="w-1 h-8 bg-gradient-to-b from-green-400 to-blue-400 rounded-full mr-3"></span>
-          Trending TV Shows
+          <span className="w-1 h-8 bg-gradient-to-b from-green-500 to-blue-500 rounded-full mr-3 animate-pulse"></span>
+          <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+            Trending TV Shows
+          </span>
         </h2>
         {trendingShows ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -125,6 +200,20 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
           </div>
         )}
       </section>
+
+      {/* Add keyframes for fadeInUp animation */}
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

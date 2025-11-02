@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MovieCard } from "./MovieCard";
+import { AnimatedHeading } from "./AnimatedHeading";
+import gsap from "gsap";
 
 interface ChatInterfaceProps {
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
@@ -13,6 +15,19 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
   const [isLoading, setIsLoading] = useState(false);
   const chatHistory = useQuery(api.chat.getChatHistory, { limit: 20 });
   const chatWithAI = useAction(api.chat.chatWithAI);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Animate page entrance
+  useEffect(() => {
+    if (containerRef.current) {
+      gsap.from(containerRef.current, {
+        opacity: 0,
+        y: 30,
+        duration: 1,
+        ease: "power4.out",
+      });
+    }
+  }, []);
 
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading) return;
@@ -38,12 +53,23 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div ref={containerRef} className="max-w-4xl mx-auto">
       <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-white/10">
-          <h2 className="text-2xl font-bold text-white mb-2">AI Movie Assistant</h2>
-          <p className="text-gray-300">Ask me about movies and TV shows from around the world!</p>
+          <AnimatedHeading 
+            text="Discover Movies with AI"
+            className="mb-2 text-2xl md:text-3xl"
+            showShimmer={true}
+          />
+          <p 
+            className="text-gray-300"
+            style={{
+              animation: "fadeInUp 0.8s ease-out 1s both",
+            }}
+          >
+            Ask me about movies and TV shows from around the world!
+          </p>
         </div>
 
         {/* Chat Messages */}
@@ -170,13 +196,44 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
             <button
               onClick={handleSendMessage}
               disabled={!message.trim() || isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-full transition-all duration-200"
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/50"
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.disabled) {
+                  gsap.to(e.currentTarget, {
+                    scale: 1.05,
+                    boxShadow: "0 20px 40px rgba(168, 85, 247, 0.5)",
+                    duration: 0.3,
+                    ease: "power2.out",
+                  });
+                }
+              }}
+              onMouseLeave={(e) => {
+                gsap.to(e.currentTarget, {
+                  scale: 1,
+                  boxShadow: "none",
+                  duration: 0.3,
+                  ease: "power2.out",
+                });
+              }}
             >
               {isLoading ? "..." : "Send"}
             </button>
           </div>
         </div>
       </div>
+      
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

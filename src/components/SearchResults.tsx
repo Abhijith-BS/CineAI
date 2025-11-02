@@ -1,7 +1,9 @@
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MovieCard } from "./MovieCard";
-import { useEffect, useState } from "react";
+import { AnimatedHeading } from "./AnimatedHeading";
+import { useEffect, useState, useRef } from "react";
+import gsap from "gsap";
 
 interface SearchResultsProps {
   query: string;
@@ -14,6 +16,30 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
   const [isLoading, setIsLoading] = useState(false);
   const searchContent = useAction(api.movies.searchContent);
   const searchWithExternalAPIs = useAction(api.movies.searchWithExternalAPIs);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Animate page entrance
+  useEffect(() => {
+    if (containerRef.current && !isLoading && searchResults) {
+      gsap.from(containerRef.current, {
+        opacity: 0,
+        y: 30,
+        duration: 1,
+        ease: "power4.out",
+      });
+
+      // Animate sections
+      const sections = containerRef.current.querySelectorAll("section");
+      gsap.from(sections, {
+        opacity: 0,
+        y: 40,
+        duration: 0.8,
+        ease: "expo.out",
+        stagger: 0.15,
+        delay: 0.3,
+      });
+    }
+  }, [searchResults, isLoading]);
 
   useEffect(() => {
     if (query.trim()) {
@@ -64,11 +90,29 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
   const totalResults = searchResults.movies.length + searchResults.shows.length;
 
   return (
-    <div className="space-y-8">
+    <div ref={containerRef} className="space-y-8">
       {/* Back Button */}
       <button
         onClick={() => setCurrentView("home")}
         className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+        onMouseEnter={(e) => {
+          gsap.to(e.currentTarget, {
+            x: -5,
+            scale: 1.05,
+            color: "#a855f7",
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        }}
+        onMouseLeave={(e) => {
+          gsap.to(e.currentTarget, {
+            x: 0,
+            scale: 1,
+            color: "#d1d5db",
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        }}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -78,10 +122,17 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
 
       {/* Search Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">
-          Search Results for "{query}"
-        </h1>
-        <p className="text-gray-300">
+        <AnimatedHeading 
+          text={`Search Results for "${query}"`}
+          className="mb-2 text-3xl"
+          showShimmer={true}
+        />
+        <p 
+          className="text-gray-300"
+          style={{
+            animation: "fadeInUp 0.8s ease-out 1s both",
+          }}
+        >
           Found {totalResults} result{totalResults !== 1 ? 's' : ''}
         </p>
       </div>
@@ -95,7 +146,23 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
           </p>
           <button
             onClick={() => setCurrentView("chat")}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-full transition-all duration-200"
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl hover:shadow-purple-500/50"
+            onMouseEnter={(e) => {
+              gsap.to(e.currentTarget, {
+                scale: 1.1,
+                boxShadow: "0 20px 40px rgba(168, 85, 247, 0.5)",
+                duration: 0.3,
+                ease: "power2.out",
+              });
+            }}
+            onMouseLeave={(e) => {
+              gsap.to(e.currentTarget, {
+                scale: 1,
+                boxShadow: "none",
+                duration: 0.3,
+                ease: "power2.out",
+              });
+            }}
           >
             Ask AI for Help
           </button>
@@ -143,6 +210,19 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
           )}
         </div>
       )}
+      
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

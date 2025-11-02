@@ -1,5 +1,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
 
 interface MovieDetailsProps {
   movieId: string;
@@ -9,6 +11,30 @@ interface MovieDetailsProps {
 export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
   const movie = useQuery(api.movies.getMovieById, { id: movieId as any });
   const addToFavorites = useMutation(api.movies.addToFavorites);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Animate page entrance
+  useEffect(() => {
+    if (containerRef.current && movie) {
+      gsap.from(containerRef.current, {
+        opacity: 0,
+        y: 40,
+        duration: 1,
+        ease: "power4.out",
+      });
+
+      // Animate content sections with stagger
+      const sections = containerRef.current.querySelectorAll("section, div");
+      gsap.from(sections, {
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        ease: "expo.out",
+        stagger: 0.1,
+        delay: 0.3,
+      });
+    }
+  }, [movie]);
 
   if (!movie) {
     return (
@@ -38,11 +64,29 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
   };
 
   return (
-    <div className="space-y-8">
+    <div ref={containerRef} className="space-y-8">
       {/* Back Button */}
       <button
         onClick={() => setCurrentView("home")}
         className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+        onMouseEnter={(e) => {
+          gsap.to(e.currentTarget, {
+            x: -5,
+            scale: 1.05,
+            color: "#a855f7",
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        }}
+        onMouseLeave={(e) => {
+          gsap.to(e.currentTarget, {
+            x: 0,
+            scale: 1,
+            color: "#d1d5db",
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        }}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -121,11 +165,45 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
               <div className="flex space-x-4">
                 <button
                   onClick={handleAddToFavorites}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-full transition-all duration-200 transform hover:scale-105"
+                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl hover:shadow-purple-500/50"
+                  onMouseEnter={(e) => {
+                    gsap.to(e.currentTarget, {
+                      scale: 1.1,
+                      boxShadow: "0 20px 40px rgba(168, 85, 247, 0.5)",
+                      duration: 0.3,
+                      ease: "power2.out",
+                    });
+                  }}
+                  onMouseLeave={(e) => {
+                    gsap.to(e.currentTarget, {
+                      scale: 1,
+                      boxShadow: "none",
+                      duration: 0.3,
+                      ease: "power2.out",
+                    });
+                  }}
                 >
                   Add to Favorites
                 </button>
-                <button className="px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-semibold rounded-full transition-all duration-200">
+                <button 
+                  className="px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105"
+                  onMouseEnter={(e) => {
+                    gsap.to(e.currentTarget, {
+                      scale: 1.05,
+                      backgroundColor: "rgba(255, 255, 255, 0.3)",
+                      duration: 0.3,
+                      ease: "power2.out",
+                    });
+                  }}
+                  onMouseLeave={(e) => {
+                    gsap.to(e.currentTarget, {
+                      scale: 1,
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      duration: 0.3,
+                      ease: "power2.out",
+                    });
+                  }}
+                >
                   Add to Watchlist
                 </button>
               </div>
