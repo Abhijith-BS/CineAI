@@ -45,11 +45,15 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
   }
 
   const backdropUrl = movie.backdropPath 
-    ? `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
+    ? (movie.backdropPath.startsWith("http://") || movie.backdropPath.startsWith("https://"))
+      ? movie.backdropPath
+      : `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
     : null;
   
   const posterUrl = movie.posterPath 
-    ? `https://image.tmdb.org/t/p/w500${movie.posterPath}`
+    ? (movie.posterPath.startsWith("http://") || movie.posterPath.startsWith("https://"))
+      ? movie.posterPath // Full URL from Google
+      : `https://image.tmdb.org/t/p/w500${movie.posterPath}` // TMDB path
     : null;
 
   const handleAddToFavorites = async () => {

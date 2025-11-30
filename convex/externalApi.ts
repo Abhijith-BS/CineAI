@@ -725,3 +725,70 @@ function generateSampleResults(args: any) {
     }
   ];
 }
+
+/**
+ * Fetch movie poster image from Google Images using Serper.dev
+ */
+export const fetchGoogleImage = action({
+  args: {
+    title: v.string(),
+    year: v.optional(v.number()),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    try {
+      const apiKey = process.env.SERPER_API_KEY;
+      if (!apiKey) {
+        console.log("SERPER_API_KEY not set, cannot fetch Google images");
+        return null;
+      }
+
+      // Build search query: "movie title year poster"
+      const searchQuery = args.year 
+        ? `${args.title} ${args.year} movie poster`
+        : `${args.title} movie poster`;
+
+      const response = await axios.post(
+        "https://google.serper.dev/images",
+        {
+          q: searchQuery,
+          num: 3, // Get top 3 results
+        },
+        {
+          headers: {
+            "X-API-KEY": apiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const images = response.data?.images || [];
+      if (images.length === 0) {
+        return null;
+      }
+
+      // Prefer images from movie-related domains
+      const preferredDomains = [
+        "imdb.com",
+        "themoviedb.org",
+        "wikipedia.org",
+        "rottentomatoes.com",
+        "filmstruck.com",
+      ];
+
+      // Try to find an image from a preferred domain first
+      for (const img of images) {
+        const url = img.link || img.imageUrl || "";
+        if (preferredDomains.some(domain => url.includes(domain))) {
+          return url;
+        }
+      }
+
+      // Otherwise return the first image
+      return images[0]?.link || images[0]?.imageUrl || null;
+    } catch (error) {
+      console.error("Error fetching Google image:", error);
+      return null;
+    }
+  },
+});

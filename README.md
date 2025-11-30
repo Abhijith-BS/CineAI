@@ -27,3 +27,40 @@ Check out the [Convex docs](https://docs.convex.dev/) for more information on ho
 ## HTTP API
 
 User-defined http routes are defined in the `convex/router.ts` file. We split these routes into a separate file from `convex/http.ts` to allow us to prevent the LLM from modifying the authentication routes.
+
+## AI Chat System
+
+This app uses **Groq API with llama-3.3-70b-versatile** model to provide ChatGPT-style conversational responses about movies and TV shows.
+
+### Environment Variables
+
+Add these to your `.env.local` file (or Convex dashboard environment variables):
+
+```env
+# Required
+GROQ_API_KEY=your_groq_api_key_here
+
+# Required for movie information
+TMDB_API_KEY=your_tmdb_api_key_here
+
+# Optional - for web search fallback (use one or both)
+SERPER_API_KEY=your_serper_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+```
+
+### How it works
+
+1. **Movie Information**: First checks TMDB API for movie details
+2. **Web Search**: If not found in TMDB, automatically searches Google (via Serper.dev or Tavily)
+3. **AI Response**: Combines all information and generates a ChatGPT-style response using Groq's llama-3.3-70b-versatile model
+4. **Response Format**: Returns JSON with:
+   - `reply`: ChatGPT-style conversational response
+   - `movie`: Movie information (if found)
+   - `sources`: Array of data sources used (tmdb, google, groq)
+
+### Getting API Keys
+
+- **Groq API Key**: Sign up at [console.groq.com](https://console.groq.com)
+- **TMDB API Key**: Get free API key from [themoviedb.org](https://www.themoviedb.org/settings/api)
+- **Serper.dev API Key**: Sign up at [serper.dev](https://serper.dev) (for Google Search)
+- **Tavily API Key**: Sign up at [tavily.com](https://tavily.com) (alternative Google Search provider)

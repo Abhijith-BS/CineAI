@@ -18,25 +18,35 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
   const searchWithExternalAPIs = useAction(api.movies.searchWithExternalAPIs);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Animate page entrance
+  // Animate page entrance - ensure content is visible
   useEffect(() => {
     if (containerRef.current && !isLoading && searchResults) {
+      // Ensure container is visible
+      gsap.set(containerRef.current, { opacity: 1, visibility: "visible" });
+      
+      // Quick fade-in animation
       gsap.from(containerRef.current, {
         opacity: 0,
-        y: 30,
-        duration: 1,
-        ease: "power4.out",
+        y: 20,
+        duration: 0.5,
+        ease: "power2.out",
       });
 
-      // Animate sections
+      // Animate sections with shorter delays
       const sections = containerRef.current.querySelectorAll("section");
       gsap.from(sections, {
         opacity: 0,
-        y: 40,
-        duration: 0.8,
-        ease: "expo.out",
-        stagger: 0.15,
-        delay: 0.3,
+        y: 20,
+        duration: 0.4,
+        ease: "power2.out",
+        stagger: 0.05, // Reduced stagger delay
+        delay: 0.1, // Reduced initial delay
+      });
+      
+      // Ensure all movie cards are visible
+      const movieCards = containerRef.current.querySelectorAll("[class*='group cursor-pointer']");
+      movieCards.forEach((card) => {
+        gsap.set(card, { opacity: 1, visibility: "visible" });
       });
     }
   }, [searchResults, isLoading]);

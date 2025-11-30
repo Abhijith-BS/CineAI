@@ -16,11 +16,10 @@ import type {
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
 import type * as externalApi from "../externalApi.js";
-import type * as gemini from "../gemini.js";
+import type * as groq from "../groq.js";
 import type * as http from "../http.js";
 import type * as movies from "../movies.js";
 import type * as router from "../router.js";
-import type * as vertex from "../vertex.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -34,11 +33,10 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   chat: typeof chat;
   externalApi: typeof externalApi;
-  gemini: typeof gemini;
+  groq: typeof groq;
   http: typeof http;
   movies: typeof movies;
   router: typeof router;
-  vertex: typeof vertex;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

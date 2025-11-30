@@ -11,20 +11,27 @@ export function MovieCard({ item, type, onClick }: MovieCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const title = type === "movie" ? item.title : item.name;
   const releaseDate = type === "movie" ? item.releaseDate : item.firstAirDate;
+  // Check if posterPath is a full URL (from Google) or a TMDB path
   const posterUrl = item.posterPath 
-    ? `https://image.tmdb.org/t/p/w500${item.posterPath}`
+    ? (item.posterPath.startsWith("http://") || item.posterPath.startsWith("https://"))
+      ? item.posterPath // Full URL from Google
+      : `https://image.tmdb.org/t/p/w500${item.posterPath}` // TMDB path
     : "/api/placeholder/300/450";
 
-  // Animate card entrance
+  // Animate card entrance - ensure visibility
   useEffect(() => {
     if (cardRef.current) {
+      // Set initial visibility to prevent flicker
+      gsap.set(cardRef.current, { opacity: 1, visibility: "visible" });
+      
+      // Animate from initial state
       gsap.from(cardRef.current, {
         opacity: 0,
-        scale: 0.9,
-        y: 20,
-        duration: 0.6,
-        ease: "expo.out",
-        delay: Math.random() * 0.2, // Stagger cards randomly
+        scale: 0.95,
+        y: 10,
+        duration: 0.4,
+        ease: "power2.out",
+        delay: 0, // Remove random delay to ensure all cards appear
       });
     }
   }, []);
@@ -33,6 +40,7 @@ export function MovieCard({ item, type, onClick }: MovieCardProps) {
     <div 
       ref={cardRef}
       className="group cursor-pointer"
+      style={{ opacity: 1, visibility: "visible" }}
       onClick={(e) => {
         // Click animation feedback
         gsap.to(e.currentTarget, {

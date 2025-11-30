@@ -7,6 +7,7 @@ import {
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api, internal } from "./_generated/api";
+import { Doc } from "./_generated/dataModel";
 
 // Get trending movies
 export const getTrendingMovies = query({
@@ -96,8 +97,8 @@ export const searchContent = action({
         const existingMovieIds = new Set(results.movies.map(m => m.tmdbId));
         const existingShowIds = new Set(results.shows.map(s => s.tmdbId));
         
-        const newMovies = externalResults.movies.filter(m => !existingMovieIds.has(m.tmdbId));
-        const newShows = externalResults.shows.filter(s => !existingShowIds.has(s.tmdbId));
+        const newMovies = externalResults.movies.filter((m: any) => !existingMovieIds.has(m.tmdbId));
+        const newShows = externalResults.shows.filter((s: any) => !existingShowIds.has(s.tmdbId));
         
         results.movies = [...results.movies, ...newMovies];
         results.shows = [...results.shows, ...newShows];
@@ -157,6 +158,28 @@ export const searchWithExternalAPIs = action({
         if (!existingMovie) {
           // Remove non-schema fields (e.g., source)
           const { source, ...movieForInsert } = movie as any;
+          
+          // If posterPath is missing, try to fetch from Google Images
+          if (!movieForInsert.posterPath) {
+            try {
+              const year = movieForInsert.releaseDate 
+                ? parseInt(movieForInsert.releaseDate.split("-")[0])
+                : undefined;
+              const googleImageUrl = await ctx.runAction(api.externalApi.fetchGoogleImage, {
+                title: movieForInsert.title,
+                year: year,
+              });
+              
+              // Store Google image URL in posterPath (we'll handle it as external URL)
+              if (googleImageUrl) {
+                movieForInsert.posterPath = googleImageUrl;
+              }
+            } catch (error) {
+              console.error("Error fetching Google image:", error);
+              // Continue without poster if Google fetch fails
+            }
+          }
+          
           const movieId = await ctx.runMutation(internal.movies.insertMovie, movieForInsert);
           const storedMovie: any = await ctx.runQuery(api.movies.getMovieById, { id: movieId });
           if (storedMovie) storedMovies.push(storedMovie);
@@ -521,5 +544,63 @@ export const insertShow = internalMutation({
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("tvShows", args);
+  },
+});
+
+/**
+ * Update movie poster from Google Images if missing
+ */
+export const updateMoviePoster = action({
+  args: {
+    movieId: v.id("movies"),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args): Promise<string | null> => {
+    const movie: Doc<"movies"> | null = await ctx.runQuery(api.movies.getMovieById, { id: args.movieId });
+    if (!movie) {
+      return null;
+    }
+
+    // Only fetch if poster is missing
+    if (movie.posterPath) {
+      return movie.posterPath;
+    }
+
+    try {
+      const year = movie.releaseDate 
+        ? parseInt(movie.releaseDate.split("-")[0])
+        : undefined;
+      const googleImageUrl: string | null = await ctx.runAction(api.externalApi.fetchGoogleImage, {
+        title: movie.title,
+        year: year,
+      });
+
+      if (googleImageUrl) {
+        // Update the movie in database
+        await ctx.runMutation(internal.movies.updateMoviePosterInternal, {
+          movieId: args.movieId,
+          posterPath: googleImageUrl,
+        });
+        return googleImageUrl;
+      }
+    } catch (error) {
+      console.error("Error updating movie poster:", error);
+    }
+
+    return null;
+  },
+});
+
+export const updateMoviePosterInternal = internalMutation({
+  args: {
+    movieId: v.id("movies"),
+    posterPath: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.movieId, {
+      posterPath: args.posterPath,
+    });
+    return null;
   },
 });

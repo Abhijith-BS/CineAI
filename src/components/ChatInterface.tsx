@@ -16,6 +16,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
   const chatHistory = useQuery(api.chat.getChatHistory, { limit: 20 });
   const chatWithAI = useAction(api.chat.chatWithAI);
   const containerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Animate page entrance
   useEffect(() => {
@@ -29,15 +30,35 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
     }
   }, []);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatHistory]);
+
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading) return;
 
+    const messageToSend = message.trim();
+    setMessage("");
     setIsLoading(true);
+    
     try {
-      await chatWithAI({ message: message.trim() });
-      setMessage("");
-    } catch (error) {
+      const result = await chatWithAI({ message: messageToSend });
+      
+      if (!result.success) {
+        // Show error message to user
+        alert(result.error || "Failed to send message. Please try again.");
+        // Restore message if there was an error
+        setMessage(messageToSend);
+      }
+    } catch (error: any) {
       console.error("Error sending message:", error);
+      const errorMessage = error?.message || "An unexpected error occurred. Please try again.";
+      alert(errorMessage);
+      // Restore message on error
+      setMessage(messageToSend);
     } finally {
       setIsLoading(false);
     }
@@ -74,6 +95,11 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
 
         {/* Chat Messages */}
         <div className="h-96 overflow-y-auto p-6 space-y-4">
+          {isLoading && chatHistory && chatHistory.length === 0 && (
+            <div className="flex justify-center items-center py-8">
+              <div className="text-gray-400">Thinking...</div>
+            </div>
+          )}
           {chatHistory === undefined ? (
             <div className="flex justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
@@ -122,7 +148,9 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
                 {/* AI Response */}
                 <div className="flex justify-start">
                   <div className="bg-white/10 text-white p-3 rounded-2xl rounded-bl-md max-w-md">
-                    <div className="whitespace-pre-line">{chat.response}</div>
+                    <div className="whitespace-pre-line">
+                      {chat.response || "I apologize, but I couldn't generate a response. Please try again."}
+                    </div>
                   </div>
                 </div>
 
@@ -179,6 +207,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
               </div>
             ))
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
