@@ -133,14 +133,14 @@ export function LandingPage({ onStartChat, onBrowseMovies, onSignIn }: LandingPa
         {onSignIn ? (
           <button
             onClick={onSignIn}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 text-[#fefae0] rounded-full font-medium transition-all duration-300 hover:from-purple-500/30 hover:to-pink-500/30 hover:border-purple-400/50 backdrop-blur-sm"
+            className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 text-[#fefae0] rounded-full font-medium transition-all duration-300 hover:from-purple-500/30 hover:to-pink-500/30 hover:border-purple-400/50"
           >
             Sign In
           </button>
         ) : onStartChat ? (
           <button
             onClick={onStartChat}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 text-[#fefae0] rounded-full font-medium transition-all duration-300 hover:from-purple-500/30 hover:to-pink-500/30 hover:border-purple-400/50 backdrop-blur-sm"
+            className="px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 text-[#fefae0] rounded-full font-medium transition-all duration-300 hover:from-purple-500/30 hover:to-pink-500/30 hover:border-purple-400/50"
           >
             Get Started
           </button>
@@ -158,9 +158,6 @@ export function LandingPage({ onStartChat, onBrowseMovies, onSignIn }: LandingPa
           <h1
             ref={headingRef}
             className="text-5xl md:text-7xl lg:text-8xl font-bold text-[#fefae0] leading-tight tracking-tight relative z-10"
-            style={{
-              textShadow: "0 0 40px rgba(254, 250, 224, 0.1)",
-            }}
           >
             Discover Movies with AI
           </h1>
@@ -224,7 +221,7 @@ export function LandingPage({ onStartChat, onBrowseMovies, onSignIn }: LandingPa
           {onBrowseMovies && (
             <button
               onClick={onBrowseMovies}
-              className="px-10 py-4 bg-white/10 backdrop-blur-sm border border-white/20 text-[#fefae0] font-semibold rounded-full text-lg transition-all duration-300 transform hover:scale-105 hover:bg-white/20 hover:border-white/30"
+              className="px-10 py-4 bg-white/10 border border-white/20 text-[#fefae0] font-semibold rounded-full text-lg transition-all duration-300 transform hover:scale-105 hover:bg-white/20 hover:border-white/30"
             >
               Browse Movies
             </button>

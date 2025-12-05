@@ -48,26 +48,14 @@ export function BaseLayout({
     transitionEasing: "power2.inOut" as const,
   };
 
-  // Animate header entrance on mount - runs after mount
+  // Header appears immediately without fade animation
   useEffect(() => {
-    // Wait for next tick to ensure header is mounted
-    const timeoutId = setTimeout(() => {
-      if (showHeader && headerRef.current) {
-        console.log("[BaseLayout] Animating header element:", headerRef.current);
-        // Animate header with fade-in and downward motion
-        gsap.from(headerRef.current, {
-          opacity: 0,
-          y: -20,
-          duration: 0.8,
-          ease: GSAP_CONFIG.headerEasing,
-          delay: GSAP_CONFIG.headerAnimationDelay,
-        });
-      } else {
-        console.log("[BaseLayout] Header not shown or not mounted yet");
-      }
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
+    if (showHeader && headerRef.current) {
+      gsap.set(headerRef.current, {
+        opacity: 1,
+        y: 0,
+      });
+    }
   }, [showHeader]);
 
   // Handle page transitions and content animation - runs after mount
@@ -78,53 +66,13 @@ export function BaseLayout({
         console.log("[BaseLayout] Animating content element:", contentRef.current);
         const isPageChange = previousPageRef.current !== currentPage && previousPageRef.current !== undefined;
         
-        if (isPageChange && previousPageRef.current) {
-          // Page transition: fade out old content, then fade in new content
-          console.log("[BaseLayout] Page transition from", previousPageRef.current, "to", currentPage);
-          const tl = gsap.timeline();
-          
-          // Fade out old content
-          tl.to(contentRef.current, {
-            opacity: 0,
-            y: 20,
-            duration: GSAP_CONFIG.pageTransitionDuration / 2,
-            ease: GSAP_CONFIG.transitionEasing,
-          })
-          // Fade in new content
-          .fromTo(
-            contentRef.current,
-            {
-              opacity: 0,
-              y: 30,
-            },
-            {
-              opacity: 1,
-              y: 0,
-              duration: GSAP_CONFIG.contentAnimationDuration,
-              ease: GSAP_CONFIG.contentEasing,
-              delay: GSAP_CONFIG.contentAnimationDelay,
-            }
-          );
-        } else {
-          // Initial page load: animate content entrance with cinematic effect
-          console.log("[BaseLayout] Initial page load animation");
-          // Set initial state and animate in with slight scale
-          gsap.fromTo(
-            contentRef.current,
-            {
-              opacity: 0,
-              y: 30,
-              scale: 0.98, // Subtle scale effect matching landing page
-            },
-            {
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              duration: GSAP_CONFIG.contentAnimationDuration,
-              ease: GSAP_CONFIG.contentEasing,
-              delay: GSAP_CONFIG.contentAnimationDelay,
-            }
-          );
+        // Remove fade animations - content appears immediately
+        if (contentRef.current) {
+          gsap.set(contentRef.current, {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+          });
         }
 
         // Update previous page reference
@@ -154,7 +102,7 @@ export function BaseLayout({
       {showHeader && (
         <header
           ref={headerRef}
-          className="fixed top-0 left-0 right-0 z-50 bg-black/20 backdrop-blur-md border-b border-white/10"
+          className="fixed top-0 left-0 right-0 z-50 bg-black/20 border-b border-white/10"
         >
           <div className="container mx-auto px-4 h-16 flex justify-between items-center">
             <div className="flex items-center">

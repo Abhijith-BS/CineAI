@@ -6,9 +6,10 @@ import gsap from "gsap";
 interface MovieDetailsProps {
   movieId: string;
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
+  onGoHome: () => void;
 }
 
-export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
+export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetailsProps) {
   const movie = useQuery(api.movies.getMovieById, { id: movieId as any });
   const addToFavorites = useMutation(api.movies.addToFavorites);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,7 +72,7 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
     <div ref={containerRef} className="space-y-8">
       {/* Back Button */}
       <button
-        onClick={() => setCurrentView("home")}
+        onClick={onGoHome}
         className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
         onMouseEnter={(e) => {
           gsap.to(e.currentTarget, {
@@ -155,7 +156,7 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
                 {movie.genres.map((genre) => (
                   <span
                     key={genre}
-                    className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm text-white"
+                    className="px-3 py-1 bg-white/20 rounded-full text-sm text-white"
                   >
                     {genre}
                   </span>
@@ -190,7 +191,7 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
                   Add to Favorites
                 </button>
                 <button 
-                  className="px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105"
+                  className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105"
                   onMouseEnter={(e) => {
                     gsap.to(e.currentTarget, {
                       scale: 1.05,
@@ -218,7 +219,7 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
 
       {/* Additional Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+        <div className="bg-white/10 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Movie Info</h3>
           <div className="space-y-3 text-sm">
             <div>
@@ -244,7 +245,7 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+        <div className="bg-white/10 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Ratings</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -264,7 +265,7 @@ export function MovieDetails({ movieId, setCurrentView }: MovieDetailsProps) {
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+        <div className="bg-white/10 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Popularity</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-purple-400 mb-2">

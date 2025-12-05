@@ -25,30 +25,16 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
     }
   }, [trendingMovies, populateSampleData]);
 
-  // Animate page entrance and sections - ensure visibility
+  // Ensure content is visible immediately - no fade animations
   useEffect(() => {
     if (containerRef.current) {
-      // Ensure container is visible
+      // Set container to visible immediately
       gsap.set(containerRef.current, { opacity: 1, visibility: "visible" });
       
-      // Animate container entrance
-      gsap.from(containerRef.current, {
-        opacity: 0,
-        y: 20,
-        duration: 0.5,
-        ease: "power2.out",
-        delay: 0.1,
-      });
-
-      // Animate sections with shorter delays
+      // Set sections to visible immediately
       if (sectionsRef.current.length > 0) {
-        gsap.from(sectionsRef.current, {
-          opacity: 0,
-          y: 20,
-          duration: 0.4,
-          ease: "power2.out",
-          stagger: 0.05, // Reduced stagger
-          delay: 0.2, // Reduced delay
+        sectionsRef.current.forEach((section) => {
+          gsap.set(section, { opacity: 1, visibility: "visible" });
         });
       }
       
@@ -78,13 +64,9 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
           <AnimatedHeading 
             text="Discover Movies with AI"
             className="mb-4"
-            showShimmer={true}
           />
           <p 
             className="text-xl text-gray-300 mb-8 max-w-2xl"
-            style={{
-              animation: "fadeInUp 0.8s ease-out 1s both",
-            }}
           >
             Chat with our AI to find the perfect movie or show. Just describe what you're in the mood for!
           </p>
@@ -111,7 +93,7 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
             Start Chatting
           </button>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-pink-600/10 backdrop-blur-3xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-pink-600/10"></div>
       </section>
 
       {/* Trending Movies */}
@@ -210,19 +192,6 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
         )}
       </section>
 
-      {/* Add keyframes for fadeInUp animation */}
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

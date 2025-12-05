@@ -43,36 +43,12 @@ export function PageTransition({
         console.log("[PageTransition] Animating container element:", containerRef.current);
         const isPageChange = previousKeyRef.current !== pageKey;
         
-        if (isPageChange && previousKeyRef.current !== undefined) {
-          // Page change: fade out then fade in
-          console.log("[PageTransition] Page change from", previousKeyRef.current, "to", pageKey);
-          const tl = gsap.timeline();
-          
-          tl.to(containerRef.current, {
-            opacity: 0,
-            y: -10,
-            duration: GSAP_CONFIG.transitionOutDuration,
-            ease: GSAP_CONFIG.transitionOutEasing,
-          })
-          .set(containerRef.current, {
-            clearProps: "all",
-          })
-          .from(containerRef.current, {
-            opacity: 0,
-            y: 30,
-            scale: 0.98, // Subtle scale effect
-            duration: GSAP_CONFIG.transitionInDuration,
-            ease: GSAP_CONFIG.transitionInEasing,
-          });
-        } else {
-          // Initial render: fade in with slight scale for cinematic effect
-          console.log("[PageTransition] Initial render animation");
-          gsap.from(containerRef.current, {
-            opacity: 0,
-            y: 30,
-            scale: 0.98, // Subtle scale effect like landing page
-            duration: GSAP_CONFIG.transitionInDuration,
-            ease: GSAP_CONFIG.transitionInEasing,
+        // Remove fade animations - content appears immediately
+        if (containerRef.current) {
+          gsap.set(containerRef.current, {
+            opacity: 1,
+            y: 0,
+            scale: 1,
           });
         }
 

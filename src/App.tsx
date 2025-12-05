@@ -20,6 +20,7 @@ export default function App() {
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [hasNavigatedAway, setHasNavigatedAway] = useState<boolean>(false);
   const [showSignIn, setShowSignIn] = useState<boolean>(false);
+  const [forceHomePage, setForceHomePage] = useState<boolean>(false);
   const navButtonsRef = useRef<HTMLButtonElement[]>([]);
   const { isAuthenticated } = useConvexAuth();
 
@@ -30,6 +31,7 @@ export default function App() {
       setShowSignIn(false);
       setShowLanding(true);
       setHasNavigatedAway(false);
+      setForceHomePage(false);
       setCurrentView("home");
     }
   }, [isAuthenticated, showSignIn]);
@@ -37,7 +39,15 @@ export default function App() {
   // Show landing page:
   // - For unauthenticated users: Always show landing page (unless they clicked Sign In)
   // - For authenticated users: Show landing on first visit only (when on home and not navigated away)
-  const showLandingPage = !showSignIn && currentView === "home" && showLanding && !hasNavigatedAway;
+  // - Never show landing page if forceHomePage is true (when clicking Back to Home)
+  const showLandingPage = !showSignIn && currentView === "home" && showLanding && !hasNavigatedAway && !forceHomePage;
+
+  // Scroll to top when navigating to home
+  useEffect(() => {
+    if (currentView === "home" && !showLandingPage) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [currentView, showLandingPage]);
   
   // Show header when:
   // - Authenticated users on non-landing pages (chat, search, movie details, etc.)
@@ -64,9 +74,11 @@ export default function App() {
       showHeader={shouldShowHeader}
       currentPage={currentView}
       onLogoClick={() => {
+        setShowLanding(false);
+        setHasNavigatedAway(true);
         setCurrentView("home");
-        setShowLanding(true);
-        setHasNavigatedAway(false);
+        setSelectedMovieId(null);
+        setSearchQuery("");
       }}
     >
       {/* Additional Navigation - Shown for authenticated users when not on landing page */}
@@ -79,9 +91,11 @@ export default function App() {
                   if (el) navButtonsRef.current[0] = el;
                 }}
                 onClick={() => {
+                  setShowLanding(false);
+                  setHasNavigatedAway(true);
                   setCurrentView("home");
-                  setShowLanding(true);
-                  setHasNavigatedAway(false);
+                  setSelectedMovieId(null);
+                  setSearchQuery("");
                 }}
                 className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${
                   currentView === "home" 
@@ -202,9 +216,10 @@ export default function App() {
                   setHasNavigatedAway(true);
                 }}
                 onBrowseMovies={() => {
-                  setCurrentView("home");
+                  setForceHomePage(true);
                   setShowLanding(false);
                   setHasNavigatedAway(true);
+                  setCurrentView("home");
                 }}
               />
             ) : (
@@ -214,6 +229,16 @@ export default function App() {
                 searchQuery={searchQuery}
                 setCurrentView={setCurrentView}
                 setSelectedMovieId={setSelectedMovieId}
+                onGoHome={() => {
+                  // Force HomePage to show (not LandingPage) by setting forceHomePage flag
+                  setForceHomePage(true);
+                  setShowLanding(false);
+                  setHasNavigatedAway(true);
+                  setSelectedMovieId(null);
+                  setSearchQuery("");
+                  setCurrentView("home");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
               />
             )}
           </Authenticated>
@@ -257,13 +282,15 @@ function Content({
   selectedMovieId, 
   searchQuery, 
   setCurrentView, 
-  setSelectedMovieId 
+  setSelectedMovieId,
+  onGoHome
 }: {
   currentView: string;
   selectedMovieId: string | null;
   searchQuery: string;
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string | null) => void;
+  onGoHome: () => void;
 }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
 
@@ -276,18 +303,21 @@ function Content({
   }
 
   switch (currentView) {
+    case "home":
+      // Always show HomePage when currentView is "home" (not LandingPage)
+      return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />;
     case "chat":
-      return <ChatInterface setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />;
+      return <ChatInterface setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} onGoHome={onGoHome} />;
     case "movie":
       return selectedMovieId ? (
-        <MovieDetails movieId={selectedMovieId} setCurrentView={setCurrentView} />
+        <MovieDetails movieId={selectedMovieId} setCurrentView={setCurrentView} onGoHome={onGoHome} />
       ) : (
         <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />
       );
     case "search":
-      return <SearchResults query={searchQuery} setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />;
+      return <SearchResults query={searchQuery} setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} onGoHome={onGoHome} />;
     default:
-      // When on home but not showing landing, show the regular HomePage
+      // Fallback to HomePage
       return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />;
   }
 }

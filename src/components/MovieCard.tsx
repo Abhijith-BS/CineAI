@@ -85,7 +85,7 @@ export function MovieCard({ item, type, onClick }: MovieCardProps) {
         
         {/* Rating Badge */}
         <div 
-          className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full px-2 py-1"
+          className="absolute top-2 right-2 bg-black/80 rounded-full px-2 py-1"
           onMouseEnter={(e) => {
             gsap.to(e.currentTarget, {
               scale: 1.15,

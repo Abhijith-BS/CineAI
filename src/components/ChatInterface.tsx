@@ -8,9 +8,10 @@ import gsap from "gsap";
 interface ChatInterfaceProps {
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string) => void;
+  onGoHome: () => void;
 }
 
-export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterfaceProps) {
+export function ChatInterface({ setCurrentView, setSelectedMovieId, onGoHome }: ChatInterfaceProps) {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const chatHistory = useQuery(api.chat.getChatHistory, { limit: 20 });
@@ -18,15 +19,10 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Animate page entrance
+  // Ensure content is visible immediately - no fade animations
   useEffect(() => {
     if (containerRef.current) {
-      gsap.from(containerRef.current, {
-        opacity: 0,
-        y: 30,
-        duration: 1,
-        ease: "power4.out",
-      });
+      gsap.set(containerRef.current, { opacity: 1, visibility: "visible" });
     }
   }, []);
 
@@ -74,27 +70,63 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
   };
 
   return (
-    <div ref={containerRef} className="max-w-4xl mx-auto">
-      <div className="bg-black/20 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-white/10">
+    <div ref={containerRef} className="max-w-7xl mx-auto w-full h-screen flex flex-col overflow-hidden relative">
+      {/* Fixed Back Button - Fixed position, always on top and clickable */}
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onGoHome();
+        }}
+        style={{ 
+          position: 'fixed',
+          top: '4.5rem',
+          left: '0.5rem',
+          zIndex: 99999,
+          pointerEvents: 'auto'
+        }}
+        className="flex items-center space-x-1.5 text-gray-300 hover:text-white transition-colors bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-lg text-sm"
+        onMouseEnter={(e) => {
+          gsap.to(e.currentTarget, {
+            x: -5,
+            scale: 1.05,
+            color: "#a855f7",
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        }}
+        onMouseLeave={(e) => {
+          gsap.to(e.currentTarget, {
+            x: 0,
+            scale: 1,
+            color: "#d1d5db",
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        }}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        <span>Back to Home</span>
+      </button>
+
+      <div className="bg-black/20 rounded-2xl border border-white/10 flex flex-col flex-1 min-h-0 overflow-hidden relative" style={{ zIndex: 1 }}>
+        {/* Fixed Header - Will not scroll */}
+        <div className="flex-shrink-0 p-6 pt-8 border-b border-white/10 bg-black/20 relative z-20">
           <AnimatedHeading 
             text="Discover Movies with AI"
             className="mb-2 text-2xl md:text-3xl"
-            showShimmer={true}
           />
           <p 
             className="text-gray-300"
-            style={{
-              animation: "fadeInUp 0.8s ease-out 1s both",
-            }}
           >
             Ask me about movies and TV shows from around the world!
           </p>
         </div>
 
-        {/* Chat Messages */}
-        <div className="h-96 overflow-y-auto p-6 space-y-4">
+        {/* Scrollable Chat Messages - Only this area scrolls */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 relative z-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {isLoading && chatHistory && chatHistory.length === 0 && (
             <div className="flex justify-center items-center py-8">
               <div className="text-gray-400">Thinking...</div>
@@ -210,8 +242,8 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-6 border-t border-white/10">
+        {/* Fixed Input */}
+        <div className="flex-shrink-0 p-6 border-t border-white/10">
           <div className="flex space-x-3">
             <input
               type="text"
@@ -252,15 +284,9 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId }: ChatInterf
       </div>
       
       <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        div[style*="scrollbarWidth"]::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>

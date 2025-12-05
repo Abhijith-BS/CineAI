@@ -9,38 +9,26 @@ interface SearchResultsProps {
   query: string;
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string) => void;
+  onGoHome: () => void;
 }
 
-export function SearchResults({ query, setCurrentView, setSelectedMovieId }: SearchResultsProps) {
+export function SearchResults({ query, setCurrentView, setSelectedMovieId, onGoHome }: SearchResultsProps) {
   const [searchResults, setSearchResults] = useState<{ movies: any[], shows: any[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const searchContent = useAction(api.movies.searchContent);
   const searchWithExternalAPIs = useAction(api.movies.searchWithExternalAPIs);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Animate page entrance - ensure content is visible
+  // Ensure content is visible immediately - no fade animations
   useEffect(() => {
     if (containerRef.current && !isLoading && searchResults) {
-      // Ensure container is visible
+      // Set container to visible immediately
       gsap.set(containerRef.current, { opacity: 1, visibility: "visible" });
       
-      // Quick fade-in animation
-      gsap.from(containerRef.current, {
-        opacity: 0,
-        y: 20,
-        duration: 0.5,
-        ease: "power2.out",
-      });
-
-      // Animate sections with shorter delays
+      // Set sections to visible immediately
       const sections = containerRef.current.querySelectorAll("section");
-      gsap.from(sections, {
-        opacity: 0,
-        y: 20,
-        duration: 0.4,
-        ease: "power2.out",
-        stagger: 0.05, // Reduced stagger delay
-        delay: 0.1, // Reduced initial delay
+      sections.forEach((section) => {
+        gsap.set(section, { opacity: 1, visibility: "visible" });
       });
       
       // Ensure all movie cards are visible
@@ -103,7 +91,7 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
     <div ref={containerRef} className="space-y-8">
       {/* Back Button */}
       <button
-        onClick={() => setCurrentView("home")}
+        onClick={onGoHome}
         className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
         onMouseEnter={(e) => {
           gsap.to(e.currentTarget, {
@@ -135,13 +123,9 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
         <AnimatedHeading 
           text={`Search Results for "${query}"`}
           className="mb-2 text-3xl"
-          showShimmer={true}
         />
         <p 
           className="text-gray-300"
-          style={{
-            animation: "fadeInUp 0.8s ease-out 1s both",
-          }}
         >
           Found {totalResults} result{totalResults !== 1 ? 's' : ''}
         </p>
@@ -220,19 +204,6 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId }: Sea
           )}
         </div>
       )}
-      
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }
