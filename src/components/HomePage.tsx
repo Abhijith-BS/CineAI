@@ -2,7 +2,7 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MovieCard } from "./MovieCard";
 import { AnimatedHeading } from "./AnimatedHeading";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 
 interface HomePageProps {
@@ -10,13 +10,61 @@ interface HomePageProps {
   setSelectedMovieId: (id: string) => void;
 }
 
+// Fisher-Yates shuffle algorithm for randomizing array order
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) {
-  const trendingMovies = useQuery(api.movies.getTrendingMovies, { limit: 12 });
-  const trendingShows = useQuery(api.movies.getTrendingShows, { limit: 12 });
-  const topRatedMovies = useQuery(api.movies.getTopRatedMovies, { limit: 12 });
+  // Fetch more movies than needed to allow for randomization
+  const allTrendingMovies = useQuery(api.movies.getTrendingMovies, { limit: 50 });
+  const allTrendingShows = useQuery(api.movies.getTrendingShows, { limit: 50 });
+  const allTopRatedMovies = useQuery(api.movies.getTopRatedMovies, { limit: 50 });
   const populateSampleData = useAction(api.movies.populateSampleData);
+  const populateTrendingTVShows = useAction(api.movies.populateTrendingTVShows);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionsRef = useRef<HTMLElement[]>([]);
+  
+  // Store shuffled results - only shuffle once when data first loads
+  const [shuffledTrendingMovies, setShuffledTrendingMovies] = useState<typeof allTrendingMovies>(undefined);
+  const [shuffledTrendingShows, setShuffledTrendingShows] = useState<typeof allTrendingShows>(undefined);
+  const [shuffledTopRatedMovies, setShuffledTopRatedMovies] = useState<typeof allTopRatedMovies>(undefined);
+  
+  // Use refs to track if we've already shuffled (prevents reshuffling on data updates)
+  const hasShuffledTrending = useRef(false);
+  const hasShuffledShows = useRef(false);
+  const hasShuffledTopRated = useRef(false);
+  
+  // Shuffle movies only once when data first loads (on mount/refresh)
+  useEffect(() => {
+    if (allTrendingMovies && !hasShuffledTrending.current) {
+      setShuffledTrendingMovies(shuffleArray(allTrendingMovies).slice(0, 12));
+      hasShuffledTrending.current = true;
+    }
+  }, [allTrendingMovies]);
+  
+  useEffect(() => {
+    if (allTrendingShows && !hasShuffledShows.current) {
+      setShuffledTrendingShows(shuffleArray(allTrendingShows).slice(0, 12));
+      hasShuffledShows.current = true;
+    }
+  }, [allTrendingShows]);
+  
+  useEffect(() => {
+    if (allTopRatedMovies && !hasShuffledTopRated.current) {
+      setShuffledTopRatedMovies(shuffleArray(allTopRatedMovies).slice(0, 12));
+      hasShuffledTopRated.current = true;
+    }
+  }, [allTopRatedMovies]);
+  
+  const trendingMovies = shuffledTrendingMovies;
+  const trendingShows = shuffledTrendingShows;
+  const topRatedMovies = shuffledTopRatedMovies;
 
   // Populate sample data if no content exists
   useEffect(() => {
@@ -24,6 +72,13 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
       populateSampleData();
     }
   }, [trendingMovies, populateSampleData]);
+
+  // Populate trending TV shows from TMDb if no shows exist
+  useEffect(() => {
+    if (allTrendingShows && allTrendingShows.length === 0) {
+      populateTrendingTVShows({ limit: 50 });
+    }
+  }, [allTrendingShows, populateTrendingTVShows]);
 
   // Ensure content is visible immediately - no fade animations
   useEffect(() => {

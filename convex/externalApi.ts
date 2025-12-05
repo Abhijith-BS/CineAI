@@ -55,6 +55,113 @@ export const searchExternalMovies = action({
   },
 });
 
+// Enhanced TV show search with external APIs
+export const searchExternalTVShows = action({
+  args: {
+    query: v.string(),
+    language: v.optional(v.string()),
+    genre: v.optional(v.string()),
+    year: v.optional(v.number()),
+    minRating: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const results = [] as Array<any>;
+      
+      // Try TMDB API first (most comprehensive)
+      if (process.env.TMDB_API_KEY) {
+        const tmdbResults = await searchTMDBTV(args);
+        results.push(...tmdbResults);
+      }
+      
+      // If no API keys are configured, return empty results
+      if (results.length === 0) {
+        return [];
+      }
+      
+      // Sort by relevance and rating and dedupe
+      const seen = new Set<number>();
+      const deduped = results.filter((s) => {
+        const key = Number(s.tmdbId);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      return deduped
+        .sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0))
+        .slice(0, 20);
+        
+    } catch (error) {
+      console.error("External TV show API search error:", error);
+      return [];
+    }
+  },
+});
+
+// Fetch trending TV shows from TMDb
+export const getTrendingTVShows = action({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return [];
+      
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+      const limit = args.limit ?? 50;
+      
+      // Fetch trending TV shows
+      const response = await axios.get(`${baseUrl}/trending/tv/week`, {
+        params: { api_key: apiKey }
+      });
+      
+      const shows = (response.data?.results ?? []).slice(0, limit) as Array<any>;
+      
+      // Get detailed info for each show
+      const detailedShows: Array<any> = [];
+      for (const show of shows) {
+        try {
+          const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
+            params: { api_key: apiKey }
+          });
+          
+          const showDetail = detailResponse.data;
+          
+          detailedShows.push({
+            tmdbId: showDetail.id,
+            name: showDetail.name,
+            overview: showDetail.overview || "",
+            firstAirDate: showDetail.first_air_date || "",
+            lastAirDate: showDetail.last_air_date || undefined,
+            posterPath: showDetail.poster_path || undefined,
+            backdropPath: showDetail.backdrop_path || undefined,
+            voteAverage: showDetail.vote_average || 0,
+            voteCount: showDetail.vote_count || 0,
+            genres: (showDetail.genres ?? []).map((g: any) => g.name) || [],
+            numberOfEpisodes: showDetail.number_of_episodes ?? undefined,
+            numberOfSeasons: showDetail.number_of_seasons ?? undefined,
+            status: showDetail.status || undefined,
+            originalLanguage: showDetail.original_language || "en",
+            popularity: showDetail.popularity || 0,
+            adult: showDetail.adult || false,
+            inProduction: showDetail.in_production || false,
+            source: "tmdb",
+          });
+        } catch (detailError) {
+          console.error("Error fetching TV show details:", detailError);
+        }
+      }
+      
+      return detailedShows;
+    } catch (error) {
+      console.error("Error fetching trending TV shows:", error);
+      return [];
+    }
+  },
+});
+
 export const generateTmdbCandidates = action({
   args: {
     query: v.string(),
@@ -475,6 +582,157 @@ async function searchTMDB(args: any) {
     return detailedMovies;
   } catch (error) {
     console.error("TMDB API error:\n", error);
+    return [];
+  }
+}
+
+async function searchTMDBTV(args: any) {
+  try {
+    const baseUrl = "https://api.themoviedb.org/3";
+    const apiKey = process.env.TMDB_API_KEY;
+
+    const region = "IN"; // prioritize India as default context
+
+    // Build language mapping
+    const languageMap: Record<string, string> = {
+      'tamil': 'ta', 'hindi': 'hi', 'telugu': 'te', 'malayalam': 'ml', 'kannada': 'kn', 'bengali': 'bn', 'marathi': 'mr',
+      'gujarati': 'gu', 'punjabi': 'pa', 'english': 'en', 'korean': 'ko', 'japanese': 'ja', 'chinese': 'zh'
+    };
+
+    const langCode = args.language ? (languageMap[String(args.language).toLowerCase()] || args.language) : undefined;
+
+    // Parse seed title for "like X" queries
+    const seedTitle = parseSeedTitle(args.query);
+    let prioritized: Array<any> = [];
+    if (seedTitle) {
+      try {
+        const seedSearch = await axios.get(`${baseUrl}/search/tv`, {
+          params: {
+            api_key: apiKey,
+            query: seedTitle,
+            include_adult: false,
+            region,
+            language: langCode ? `${langCode}-${region}` : undefined,
+            first_air_date_year: args.year,
+          },
+        });
+        const seed = (seedSearch.data?.results ?? []).sort((a: any, b: any) => (b.vote_count || 0) - (a.vote_count || 0))[0];
+        if (seed?.id) {
+          const [similar, recs] = await Promise.all([
+            axios.get(`${baseUrl}/tv/${seed.id}/similar`, { params: { api_key: apiKey, page: 1, region } }),
+            axios.get(`${baseUrl}/tv/${seed.id}/recommendations`, { params: { api_key: apiKey, page: 1, region } }),
+          ]);
+          prioritized = [
+            ...((similar.data?.results ?? []) as Array<any>),
+            ...((recs.data?.results ?? []) as Array<any>),
+          ];
+        }
+      } catch (e) {
+        console.error("TMDB TV seed similar/recommendations error:", e);
+      }
+    }
+
+    // Plain text search for TV shows
+    const params: any = {
+      api_key: apiKey,
+      query: args.query,
+      include_adult: false,
+      region,
+      first_air_date_year: args.year,
+    };
+    if (langCode) params.with_original_language = langCode;
+
+    const response = await axios.get(`${baseUrl}/search/tv`, { params });
+    const shows = (response.data?.results ?? []) as Array<any>;
+
+    // Keyword-based discovery expansion if needed
+    let discovered: Array<any> = [];
+    if ((prioritized.length + shows.length) < 5) {
+      const expansionTerms = expandFranchiseTerms(args.query);
+      const keywordSearch = await axios.get(`${baseUrl}/search/keyword`, {
+        params: { api_key: apiKey, query: expansionTerms.join(" ") },
+      });
+      const keywordIds: Array<number> = (keywordSearch.data?.results ?? [])
+        .slice(0, 5)
+        .map((k: any) => Number(k.id))
+        .filter(Boolean);
+
+      if (keywordIds.length > 0) {
+        const discover = await axios.get(`${baseUrl}/discover/tv`, {
+          params: {
+            api_key: apiKey,
+            sort_by: "popularity.desc",
+            with_keywords: keywordIds.join(","),
+            include_adult: false,
+            with_original_language: langCode,
+            first_air_date_year: args.year,
+            region,
+          },
+        });
+        discovered = (discover.data?.results ?? []) as Array<any>;
+      }
+    }
+
+    // Combine with priority: similar/recommendations > plain search > discovery
+    const combined = [...prioritized, ...shows, ...discovered]
+      // Relevance filter: require some votes or popularity to avoid junk
+      .filter((s) => (s?.vote_count || 0) >= 20 || (s?.popularity || 0) >= 5);
+
+    // Apply min rating filter early
+    let filtered = combined;
+    if (args.minRating) {
+      filtered = filtered.filter((s) => (s.vote_average || 0) >= args.minRating);
+    }
+
+    // Get detailed info for top results (max 12 to limit requests)
+    const uniqueSeen = new Set<number>();
+    const detailedShows: Array<any> = [];
+    for (const show of filtered.slice(0, 12)) {
+      if (!show?.id || uniqueSeen.has(show.id)) continue;
+      uniqueSeen.add(show.id);
+      try {
+        const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
+          params: { api_key: apiKey }
+        });
+        
+        const showDetail = detailResponse.data;
+        
+        // Check genre filter
+        if (args.genre) {
+          const hasGenre = (showDetail.genres ?? []).some((g: any) =>
+            String(g.name).toLowerCase().includes(String(args.genre).toLowerCase())
+          );
+          if (!hasGenre) continue;
+        }
+        
+        detailedShows.push({
+          tmdbId: showDetail.id,
+          name: showDetail.name,
+          overview: showDetail.overview || "",
+          firstAirDate: showDetail.first_air_date || "",
+          lastAirDate: showDetail.last_air_date || undefined,
+          posterPath: showDetail.poster_path || undefined,
+          backdropPath: showDetail.backdrop_path || undefined,
+          voteAverage: showDetail.vote_average || 0,
+          voteCount: showDetail.vote_count || 0,
+          genres: (showDetail.genres ?? []).map((g: any) => g.name) || [],
+          numberOfEpisodes: showDetail.number_of_episodes ?? undefined,
+          numberOfSeasons: showDetail.number_of_seasons ?? undefined,
+          status: showDetail.status || undefined,
+          originalLanguage: showDetail.original_language || "en",
+          popularity: showDetail.popularity || 0,
+          adult: showDetail.adult || false,
+          inProduction: showDetail.in_production || false,
+          source: "tmdb",
+        });
+      } catch (detailError) {
+        console.error("Error fetching TV show details:", detailError);
+      }
+    }
+    
+    return detailedShows;
+  } catch (error) {
+    console.error("TMDB TV API error:\n", error);
     return [];
   }
 }

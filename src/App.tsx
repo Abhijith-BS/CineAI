@@ -11,6 +11,7 @@ import { LandingPage } from "./components/LandingPage";
 import { BaseLayout } from "./components/BaseLayout";
 import { PageTransition } from "./components/PageTransition";
 import { useState, useEffect, useRef } from "react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import gsap from "gsap";
 
 export default function App() {
@@ -22,31 +23,116 @@ export default function App() {
   const [showSignIn, setShowSignIn] = useState<boolean>(false);
   const [forceHomePage, setForceHomePage] = useState<boolean>(false);
   const navButtonsRef = useRef<HTMLButtonElement[]>([]);
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
+  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+  const prevAuthStateRef = useRef<boolean>(false);
+
+  // Helper function to clear all auth-related storage
+  const clearAuthStorage = () => {
+    // Clear all Convex and auth-related items from localStorage
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.toLowerCase().includes("convex") || key.toLowerCase().includes("auth") || key.toLowerCase().includes("token"))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  };
+
+  // Auto sign out when browser closes or page unloads
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Clear auth storage when browser closes
+      clearAuthStorage();
+      sessionStorage.clear();
+    };
+
+    const handlePageHide = () => {
+      // pagehide is more reliable than beforeunload
+      clearAuthStorage();
+      sessionStorage.clear();
+    };
+
+    // Listen for page unload events
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, []);
+
+  // Clear auth on initial load if sessionStorage is empty (browser was closed)
+  // This ensures users are signed out when browser closes and reopens
+  // Also handles server restarts when the page reloads
+  useEffect(() => {
+    const sessionKey = "app:session:started";
+    const sessionStarted = sessionStorage.getItem(sessionKey);
+    
+    // If no session flag exists, this means:
+    // 1. Browser was closed and reopened (sessionStorage cleared)
+    // 2. Server was restarted and page reloaded (sessionStorage cleared)
+    // In both cases, clear auth to sign user out
+    if (!sessionStarted) {
+      clearAuthStorage();
+      // Mark session as started
+      sessionStorage.setItem(sessionKey, Date.now().toString());
+    }
+  }, []);
+
+  // Track authentication state changes to show loading
+  useEffect(() => {
+    // If user was not authenticated and now is, they just signed in
+    if (!prevAuthStateRef.current && isAuthenticated) {
+      setIsSigningIn(true);
+    }
+    // If sign-in fails (authLoading becomes false but still not authenticated), reset loading
+    if (isSigningIn && !authLoading && !isAuthenticated && showSignIn) {
+      setIsSigningIn(false);
+    }
+    prevAuthStateRef.current = isAuthenticated;
+  }, [isAuthenticated, authLoading, isSigningIn, showSignIn]);
 
   // Reset state when user successfully authenticates
   useEffect(() => {
     if (isAuthenticated && showSignIn) {
-      // User just signed in - reset to show authenticated landing page
+      // User just signed in - go directly to home page (no landing page)
       setShowSignIn(false);
-      setShowLanding(true);
-      setHasNavigatedAway(false);
-      setForceHomePage(false);
+      setShowLanding(false);
+      setHasNavigatedAway(true);
+      setForceHomePage(true);
       setCurrentView("home");
     }
   }, [isAuthenticated, showSignIn]);
 
+  // Hide loading after a short delay once authenticated and content is ready
+  useEffect(() => {
+    if (isAuthenticated && isSigningIn && !authLoading) {
+      // Small delay to ensure content is rendered
+      const timer = setTimeout(() => {
+        setIsSigningIn(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, isSigningIn, authLoading]);
+
   // Show landing page:
   // - For unauthenticated users: Always show landing page (unless they clicked Sign In)
-  // - For authenticated users: Show landing on first visit only (when on home and not navigated away)
+  // - For authenticated users: Never show landing page - go directly to home
   // - Never show landing page if forceHomePage is true (when clicking Back to Home)
-  const showLandingPage = !showSignIn && currentView === "home" && showLanding && !hasNavigatedAway && !forceHomePage;
+  const showLandingPage = !isAuthenticated && !showSignIn && currentView === "home" && showLanding && !hasNavigatedAway && !forceHomePage;
 
-  // Scroll to top when navigating to home
+  // Scroll to top only when explicitly navigating to home (not on re-renders)
+  const prevViewRef = useRef<string>("");
   useEffect(() => {
-    if (currentView === "home" && !showLandingPage) {
+    // Only scroll if we actually changed views TO home (not if we're already on home)
+    if (currentView === "home" && !showLandingPage && prevViewRef.current !== "home") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    prevViewRef.current = currentView;
   }, [currentView, showLandingPage]);
   
   // Show header when:
@@ -205,42 +291,43 @@ export default function App() {
 
       {/* Page Content with Transitions */}
       {/* Use a composite key that includes auth state to ensure proper transitions */}
+      {/* Loading overlay during sign-in */}
+      {(isSigningIn || (authLoading && showSignIn)) && (
+        <div className="fixed inset-0 bg-[#0d0d0d]/95 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" style={{ animationDirection: "reverse", animationDuration: "0.8s" }}></div>
+              </div>
+            </div>
+            <p className="text-white text-lg font-medium">Signing you in...</p>
+            <p className="text-gray-400 text-sm">Please wait a moment</p>
+          </div>
+        </div>
+      )}
+
       <PageTransition pageKey={`${currentView}-${showLandingPage}`}>
         <div className={showLandingPage ? "" : "container mx-auto px-4 py-8"}>
           <Authenticated>
-            {showLandingPage ? (
-              <LandingPage
-                onStartChat={() => {
-                  setCurrentView("chat");
-                  setShowLanding(false);
-                  setHasNavigatedAway(true);
-                }}
-                onBrowseMovies={() => {
-                  setForceHomePage(true);
-                  setShowLanding(false);
-                  setHasNavigatedAway(true);
-                  setCurrentView("home");
-                }}
-              />
-            ) : (
-              <Content 
-                currentView={currentView}
-                selectedMovieId={selectedMovieId}
-                searchQuery={searchQuery}
-                setCurrentView={setCurrentView}
-                setSelectedMovieId={setSelectedMovieId}
-                onGoHome={() => {
-                  // Force HomePage to show (not LandingPage) by setting forceHomePage flag
-                  setForceHomePage(true);
-                  setShowLanding(false);
-                  setHasNavigatedAway(true);
-                  setSelectedMovieId(null);
-                  setSearchQuery("");
-                  setCurrentView("home");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-            )}
+            {/* Authenticated users always see Content, never LandingPage */}
+            <Content 
+              currentView={currentView}
+              selectedMovieId={selectedMovieId}
+              searchQuery={searchQuery}
+              setCurrentView={setCurrentView}
+              setSelectedMovieId={setSelectedMovieId}
+              onGoHome={() => {
+                // Force HomePage to show (not LandingPage) by setting forceHomePage flag
+                setForceHomePage(true);
+                setShowLanding(false);
+                setHasNavigatedAway(true);
+                setSelectedMovieId(null);
+                setSearchQuery("");
+                setCurrentView("home");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
           </Authenticated>
           
           <Unauthenticated>
@@ -256,7 +343,9 @@ export default function App() {
                       Discover movies and shows with AI-powered conversations
                     </p>
                   </div>
-                  <SignInForm />
+                  <SignInForm 
+                    onSignInStart={() => setIsSigningIn(true)}
+                  />
                 </div>
               </div>
             ) : (

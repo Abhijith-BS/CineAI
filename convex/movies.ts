@@ -124,13 +124,13 @@ export const searchWithExternalAPIs = action({
     // First search local database
     const localResults: {movies: any[], shows: any[]} = await ctx.runQuery(api.movies.searchLocalContent, {
       query: args.query,
-      type: "movie",
+      type: "all", // Search both movies and TV shows
       language: args.language,
       genre: args.genre,
     });
 
     // If we have enough local results, return them
-    if (localResults.movies.length >= 5) {
+    if (localResults.movies.length >= 5 && localResults.shows.length >= 5) {
       return {
         movies: localResults.movies,
         shows: localResults.shows,
@@ -138,14 +138,23 @@ export const searchWithExternalAPIs = action({
       };
     }
 
-    // Otherwise, search external APIs
-    const externalMovies = await ctx.runAction(api.externalApi.searchExternalMovies, {
-      query: args.query,
-      language: args.language,
-      genre: args.genre,
-      year: args.year,
-      minRating: args.minRating,
-    });
+    // Otherwise, search external APIs for both movies and TV shows
+    const [externalMovies, externalShows] = await Promise.all([
+      ctx.runAction(api.externalApi.searchExternalMovies, {
+        query: args.query,
+        language: args.language,
+        genre: args.genre,
+        year: args.year,
+        minRating: args.minRating,
+      }),
+      ctx.runAction(api.externalApi.searchExternalTVShows, {
+        query: args.query,
+        language: args.language,
+        genre: args.genre,
+        year: args.year,
+        minRating: args.minRating,
+      }),
+    ]);
 
     // Store new movies in database for future searches
     const storedMovies = [];
@@ -191,9 +200,32 @@ export const searchWithExternalAPIs = action({
       }
     }
 
+    // Store new TV shows in database for future searches
+    const storedShows = [];
+    for (const show of externalShows.slice(0, 10)) {
+      try {
+        const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
+          tmdbId: show.tmdbId
+        });
+        
+        if (!existingShow) {
+          // Remove non-schema fields (e.g., source)
+          const { source, ...showForInsert } = show as any;
+          
+          const showId = await ctx.runMutation(internal.movies.insertShow, showForInsert);
+          const storedShow: any = await ctx.runQuery(api.movies.getShowById, { id: showId });
+          if (storedShow) storedShows.push(storedShow);
+        } else {
+          storedShows.push(existingShow);
+        }
+      } catch (error) {
+        console.error("Error storing TV show:", error);
+      }
+    }
+
     return {
       movies: [...localResults.movies, ...storedMovies],
-      shows: localResults.shows,
+      shows: [...localResults.shows, ...storedShows],
       source: "external"
     };
   },
@@ -237,6 +269,17 @@ export const findByTmdbId = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("movies")
+      .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", args.tmdbId))
+      .first();
+  },
+});
+
+// Find TV show by TMDB ID
+export const findShowByTmdbId = query({
+  args: { tmdbId: v.number() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("tvShows")
       .withIndex("by_tmdb_id", (q) => q.eq("tmdbId", args.tmdbId))
       .first();
   },
@@ -305,6 +348,36 @@ export const getUserFavorites = query({
     }
 
     return results;
+  },
+});
+
+// Populate trending TV shows from TMDb
+export const populateTrendingTVShows = action({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx) => {
+    const limit = args.limit ?? 20;
+    
+    // Fetch trending TV shows from TMDb
+    const trendingShows = await ctx.runAction(api.externalApi.getTrendingTVShows, { limit });
+    
+    // Store TV shows in database
+    for (const show of trendingShows) {
+      try {
+        const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
+          tmdbId: show.tmdbId
+        });
+        
+        if (!existingShow) {
+          // Remove non-schema fields (e.g., source)
+          const { source, ...showForInsert } = show as any;
+          await ctx.runMutation(internal.movies.insertShow, showForInsert);
+        }
+      } catch (error) {
+        console.error("Error storing trending TV show:", error);
+      }
+    }
+    
+    return { success: true, count: trendingShows.length };
   },
 });
 
