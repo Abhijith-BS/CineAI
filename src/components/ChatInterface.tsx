@@ -8,10 +8,11 @@ import gsap from "gsap";
 interface ChatInterfaceProps {
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string) => void;
+  setSelectedContentType?: (type: "movie" | "tv") => void;
   onGoHome: () => void;
 }
 
-export function ChatInterface({ setCurrentView, setSelectedMovieId, onGoHome }: ChatInterfaceProps) {
+export function ChatInterface({ setCurrentView, setSelectedMovieId, setSelectedContentType, onGoHome }: ChatInterfaceProps) {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const chatHistory = useQuery(api.chat.getChatHistory, { limit: 20 });
@@ -60,8 +61,11 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, onGoHome }: 
     }
   };
 
-  const handleMovieClick = (movieId: string) => {
+  const handleMovieClick = (movieId: string, type: "movie" | "tv" = "movie") => {
     setSelectedMovieId(movieId);
+    if (setSelectedContentType) {
+      setSelectedContentType(type);
+    }
     setCurrentView("movie");
   };
 
@@ -198,7 +202,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, onGoHome }: 
                               <MovieCard
                                 item={movie}
                                 type="movie"
-                                onClick={() => handleMovieClick(movie._id)}
+                                onClick={() => handleMovieClick(movie._id, "movie")}
                               />
                               {/* OTT Platform Indicators */}
                               {(movie as any).ottPlatforms && (movie as any).ottPlatforms.length > 0 && (
@@ -228,7 +232,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, onGoHome }: 
                               key={show._id}
                               item={show}
                               type="tv"
-                              onClick={() => handleMovieClick(show._id)}
+                              onClick={() => handleMovieClick(show._id, "tv")}
                             />
                           ))}
                         </div>

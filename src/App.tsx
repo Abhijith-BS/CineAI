@@ -5,7 +5,7 @@ import { SignOutButton } from "./SignOutButton";
 import { Toaster } from "sonner";
 import { HomePage } from "./components/HomePage";
 import { ChatInterface } from "./components/ChatInterface";
-import { MovieDetails } from "./components/MovieDetails";
+import { ContentDetails } from "./components/ContentDetails";
 import { SearchResults } from "./components/SearchResults";
 import { LandingPage } from "./components/LandingPage";
 import { BaseLayout } from "./components/BaseLayout";
@@ -17,6 +17,7 @@ import gsap from "gsap";
 export default function App() {
   const [currentView, setCurrentView] = useState<"home" | "chat" | "movie" | "search" | "signin">("home");
   const [selectedMovieId, setSelectedMovieId] = useState<string | null>(null);
+  const [selectedContentType, setSelectedContentType] = useState<"movie" | "tv">("movie");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [hasNavigatedAway, setHasNavigatedAway] = useState<boolean>(false);
@@ -164,6 +165,7 @@ export default function App() {
         setHasNavigatedAway(true);
         setCurrentView("home");
         setSelectedMovieId(null);
+        setSelectedContentType("movie");
         setSearchQuery("");
       }}
     >
@@ -181,6 +183,7 @@ export default function App() {
                   setHasNavigatedAway(true);
                   setCurrentView("home");
                   setSelectedMovieId(null);
+                  setSelectedContentType("movie");
                   setSearchQuery("");
                 }}
                 className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${
@@ -281,6 +284,7 @@ export default function App() {
                   setHasNavigatedAway(false);
                   setShowSignIn(false);
                   setSelectedMovieId(null);
+                  setSelectedContentType("movie");
                   setSearchQuery("");
                 }}
               />
@@ -314,15 +318,18 @@ export default function App() {
             <Content 
               currentView={currentView}
               selectedMovieId={selectedMovieId}
+              selectedContentType={selectedContentType}
               searchQuery={searchQuery}
               setCurrentView={setCurrentView}
               setSelectedMovieId={setSelectedMovieId}
+              setSelectedContentType={setSelectedContentType}
               onGoHome={() => {
                 // Force HomePage to show (not LandingPage) by setting forceHomePage flag
                 setForceHomePage(true);
                 setShowLanding(false);
                 setHasNavigatedAway(true);
                 setSelectedMovieId(null);
+                setSelectedContentType("movie");
                 setSearchQuery("");
                 setCurrentView("home");
                 window.scrollTo({ top: 0, behavior: "smooth" });
@@ -368,17 +375,21 @@ export default function App() {
 
 function Content({ 
   currentView, 
-  selectedMovieId, 
+  selectedMovieId,
+  selectedContentType,
   searchQuery, 
   setCurrentView, 
   setSelectedMovieId,
+  setSelectedContentType,
   onGoHome
 }: {
   currentView: string;
   selectedMovieId: string | null;
+  selectedContentType: "movie" | "tv";
   searchQuery: string;
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string | null) => void;
+  setSelectedContentType: (type: "movie" | "tv") => void;
   onGoHome: () => void;
 }) {
   const loggedInUser = useQuery(api.auth.loggedInUser);
@@ -394,19 +405,24 @@ function Content({
   switch (currentView) {
     case "home":
       // Always show HomePage when currentView is "home" (not LandingPage)
-      return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />;
+      return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />;
     case "chat":
-      return <ChatInterface setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} onGoHome={onGoHome} />;
+      return <ChatInterface setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} onGoHome={onGoHome} />;
     case "movie":
       return selectedMovieId ? (
-        <MovieDetails movieId={selectedMovieId} setCurrentView={setCurrentView} onGoHome={onGoHome} />
+        <ContentDetails 
+          contentId={selectedMovieId} 
+          contentType={selectedContentType}
+          setCurrentView={setCurrentView} 
+          onGoHome={onGoHome} 
+        />
       ) : (
-        <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />
+        <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />
       );
     case "search":
-      return <SearchResults query={searchQuery} setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} onGoHome={onGoHome} />;
+      return <SearchResults query={searchQuery} setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} onGoHome={onGoHome} />;
     default:
       // Fallback to HomePage
-      return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} />;
+      return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />;
   }
 }

@@ -35,6 +35,19 @@ export const getTrendingShows = query({
   },
 });
 
+// Get top-rated TV shows
+export const getTopRatedShows = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 20;
+    return await ctx.db
+      .query("tvShows")
+      .withIndex("by_vote_average")
+      .order("desc")
+      .take(limit);
+  },
+});
+
 // Get top rated movies
 export const getTopRatedMovies = query({
   args: { limit: v.optional(v.number()) },
@@ -84,8 +97,10 @@ export const searchContent = action({
     });
 
     results = localResults;
-    // If we don't have enough results, search external APIs
-    if (results.movies.length < 5 && results.shows.length < 5) {
+    // Always search external APIs to ensure we get TV shows and movies
+    // This ensures TV shows like "Stranger Things" appear in search results
+    const totalResults = results.movies.length + results.shows.length;
+    if (totalResults < 10 || results.movies.length < 3 || results.shows.length < 3) {
       try {
         const externalResults = await ctx.runAction(api.movies.searchWithExternalAPIs, {
           query: args.query,
@@ -129,8 +144,10 @@ export const searchWithExternalAPIs = action({
       genre: args.genre,
     });
 
-    // If we have enough local results, return them
-    if (localResults.movies.length >= 5 && localResults.shows.length >= 5) {
+    // Always search external APIs to ensure comprehensive results including TV shows
+    // This ensures popular shows like "Stranger Things" appear even if not in local DB
+    const totalLocalResults = localResults.movies.length + localResults.shows.length;
+    if (totalLocalResults >= 20 && localResults.movies.length >= 5 && localResults.shows.length >= 5) {
       return {
         movies: localResults.movies,
         shows: localResults.shows,
@@ -354,11 +371,11 @@ export const getUserFavorites = query({
 // Populate trending TV shows from TMDb
 export const populateTrendingTVShows = action({
   args: { limit: v.optional(v.number()) },
-  handler: async (ctx) => {
+  handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
     const limit = args.limit ?? 20;
     
     // Fetch trending TV shows from TMDb
-    const trendingShows = await ctx.runAction(api.externalApi.getTrendingTVShows, { limit });
+    const trendingShows: Array<any> = await ctx.runAction(api.externalApi.getTrendingTVShows, { limit });
     
     // Store TV shows in database
     for (const show of trendingShows) {
@@ -378,6 +395,66 @@ export const populateTrendingTVShows = action({
     }
     
     return { success: true, count: trendingShows.length };
+  },
+});
+
+// Populate popular TV shows from TMDb
+export const populatePopularTVShows = action({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
+    const limit = args.limit ?? 20;
+    
+    // Fetch popular TV shows from TMDb
+    const popularShows: Array<any> = await ctx.runAction(api.externalApi.getPopularTVShows, { limit });
+    
+    // Store TV shows in database
+    for (const show of popularShows) {
+      try {
+        const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
+          tmdbId: show.tmdbId
+        });
+        
+        if (!existingShow) {
+          // Remove non-schema fields (e.g., source)
+          const { source, ...showForInsert } = show as any;
+          await ctx.runMutation(internal.movies.insertShow, showForInsert);
+        }
+      } catch (error) {
+        console.error("Error storing popular TV show:", error);
+      }
+    }
+    
+    return { success: true, count: popularShows.length };
+  },
+});
+
+// Populate top-rated TV shows from TMDb
+export const populateTopRatedTVShows = action({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
+    const limit = args.limit ?? 20;
+    
+    // Fetch top-rated TV shows from TMDb
+    const topRatedShows: Array<any> = await ctx.runAction(api.externalApi.getTopRatedTVShows, { limit });
+    
+    // Store TV shows in database
+    for (const show of topRatedShows) {
+      try {
+        const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
+          tmdbId: show.tmdbId
+        });
+        
+        if (!existingShow) {
+          // Remove non-schema fields (e.g., source)
+          const { source, ...showForInsert } = show as any;
+          await ctx.runMutation(internal.movies.insertShow, showForInsert);
+        }
+      } catch (error) {
+        console.error("Error storing top-rated TV show:", error);
+      }
+    }
+    
+    return { success: true, count: topRatedShows.length };
   },
 });
 

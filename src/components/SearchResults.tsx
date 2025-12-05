@@ -9,10 +9,11 @@ interface SearchResultsProps {
   query: string;
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string) => void;
+  setSelectedContentType: (type: "movie" | "tv") => void;
   onGoHome: () => void;
 }
 
-export function SearchResults({ query, setCurrentView, setSelectedMovieId, onGoHome }: SearchResultsProps) {
+export function SearchResults({ query, setCurrentView, setSelectedMovieId, setSelectedContentType, onGoHome }: SearchResultsProps) {
   const [searchResults, setSearchResults] = useState<{ movies: any[], shows: any[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const searchContent = useAction(api.movies.searchContent);
@@ -72,8 +73,9 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId, onGoH
     }
   }, [query, searchContent, searchWithExternalAPIs]);
 
-  const handleMovieClick = (movieId: string) => {
+  const handleMovieClick = (movieId: string, type: "movie" | "tv" = "movie") => {
     setSelectedMovieId(movieId);
+    setSelectedContentType(type);
     setCurrentView("movie");
   };
 
@@ -176,7 +178,7 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId, onGoH
                     key={movie._id}
                     item={movie}
                     type="movie"
-                    onClick={() => handleMovieClick(movie._id)}
+                    onClick={() => handleMovieClick(movie._id, "movie")}
                   />
                 ))}
               </div>
@@ -196,7 +198,7 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId, onGoH
                     key={show._id}
                     item={show}
                     type="tv"
-                    onClick={() => handleMovieClick(show._id)}
+                    onClick={() => handleMovieClick(show._id, "tv")}
                   />
                 ))}
               </div>

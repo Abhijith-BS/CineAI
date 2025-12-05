@@ -8,6 +8,7 @@ import gsap from "gsap";
 interface HomePageProps {
   setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
   setSelectedMovieId: (id: string) => void;
+  setSelectedContentType: (type: "movie" | "tv") => void;
 }
 
 // Fisher-Yates shuffle algorithm for randomizing array order
@@ -20,13 +21,16 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) {
+export function HomePage({ setCurrentView, setSelectedMovieId, setSelectedContentType }: HomePageProps) {
   // Fetch more movies than needed to allow for randomization
   const allTrendingMovies = useQuery(api.movies.getTrendingMovies, { limit: 50 });
   const allTrendingShows = useQuery(api.movies.getTrendingShows, { limit: 50 });
   const allTopRatedMovies = useQuery(api.movies.getTopRatedMovies, { limit: 50 });
+  const allTopRatedShows = useQuery(api.movies.getTopRatedShows, { limit: 50 });
   const populateSampleData = useAction(api.movies.populateSampleData);
   const populateTrendingTVShows = useAction(api.movies.populateTrendingTVShows);
+  const populatePopularTVShows = useAction(api.movies.populatePopularTVShows);
+  const populateTopRatedTVShows = useAction(api.movies.populateTopRatedTVShows);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionsRef = useRef<HTMLElement[]>([]);
   
@@ -34,11 +38,13 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
   const [shuffledTrendingMovies, setShuffledTrendingMovies] = useState<typeof allTrendingMovies>(undefined);
   const [shuffledTrendingShows, setShuffledTrendingShows] = useState<typeof allTrendingShows>(undefined);
   const [shuffledTopRatedMovies, setShuffledTopRatedMovies] = useState<typeof allTopRatedMovies>(undefined);
+  const [shuffledTopRatedShows, setShuffledTopRatedShows] = useState<typeof allTopRatedShows>(undefined);
   
   // Use refs to track if we've already shuffled (prevents reshuffling on data updates)
   const hasShuffledTrending = useRef(false);
   const hasShuffledShows = useRef(false);
   const hasShuffledTopRated = useRef(false);
+  const hasShuffledTopRatedShows = useRef(false);
   
   // Shuffle movies only once when data first loads (on mount/refresh)
   useEffect(() => {
@@ -62,9 +68,17 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
     }
   }, [allTopRatedMovies]);
   
+  useEffect(() => {
+    if (allTopRatedShows && !hasShuffledTopRatedShows.current) {
+      setShuffledTopRatedShows(shuffleArray(allTopRatedShows).slice(0, 12));
+      hasShuffledTopRatedShows.current = true;
+    }
+  }, [allTopRatedShows]);
+  
   const trendingMovies = shuffledTrendingMovies;
   const trendingShows = shuffledTrendingShows;
   const topRatedMovies = shuffledTopRatedMovies;
+  const topRatedShows = shuffledTopRatedShows;
 
   // Populate sample data if no content exists
   useEffect(() => {
@@ -73,12 +87,20 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
     }
   }, [trendingMovies, populateSampleData]);
 
-  // Populate trending TV shows from TMDb if no shows exist
+  // Populate TV shows from TMDb if no shows exist
   useEffect(() => {
     if (allTrendingShows && allTrendingShows.length === 0) {
       populateTrendingTVShows({ limit: 50 });
+      populatePopularTVShows({ limit: 50 });
     }
-  }, [allTrendingShows, populateTrendingTVShows]);
+  }, [allTrendingShows, populateTrendingTVShows, populatePopularTVShows]);
+
+  // Populate top-rated TV shows if none exist
+  useEffect(() => {
+    if (allTopRatedShows && allTopRatedShows.length === 0) {
+      populateTopRatedTVShows({ limit: 50 });
+    }
+  }, [allTopRatedShows, populateTopRatedTVShows]);
 
   // Ensure content is visible immediately - no fade animations
   useEffect(() => {
@@ -99,10 +121,11 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
         gsap.set(card, { opacity: 1, visibility: "visible" });
       });
     }
-  }, [trendingMovies, trendingShows, topRatedMovies]);
+  }, [trendingMovies, trendingShows, topRatedMovies, topRatedShows]);
 
-  const handleMovieClick = (movieId: string) => {
+  const handleMovieClick = (movieId: string, type: "movie" | "tv" = "movie") => {
     setSelectedMovieId(movieId);
+    setSelectedContentType(type);
     setCurrentView("movie");
   };
 
@@ -170,7 +193,7 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
                 key={movie._id}
                 item={movie}
                 type="movie"
-                onClick={() => handleMovieClick(movie._id)}
+                onClick={() => handleMovieClick(movie._id, "movie")}
               />
             ))}
           </div>
@@ -202,7 +225,7 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
                 key={movie._id}
                 item={movie}
                 type="movie"
-                onClick={() => handleMovieClick(movie._id)}
+                onClick={() => handleMovieClick(movie._id, "movie")}
               />
             ))}
           </div>
@@ -234,7 +257,39 @@ export function HomePage({ setCurrentView, setSelectedMovieId }: HomePageProps) 
                 key={show._id}
                 item={show}
                 type="tv"
-                onClick={() => handleMovieClick(show._id)}
+                onClick={() => handleMovieClick(show._id, "tv")}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="aspect-[2/3] bg-gray-800 rounded-lg animate-pulse"></div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Top Rated TV Shows */}
+      <section
+        ref={(el) => {
+          if (el) sectionsRef.current[4] = el;
+        }}
+      >
+        <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
+          <span className="w-1 h-8 bg-gradient-to-b from-cyan-500 to-teal-500 rounded-full mr-3 animate-pulse"></span>
+          <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">
+            Top Rated TV Shows
+          </span>
+        </h2>
+        {topRatedShows ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {topRatedShows.map((show) => (
+              <MovieCard
+                key={show._id}
+                item={show}
+                type="tv"
+                onClick={() => handleMovieClick(show._id, "tv")}
               />
             ))}
           </div>

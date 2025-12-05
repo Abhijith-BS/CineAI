@@ -162,6 +162,171 @@ export const getTrendingTVShows = action({
   },
 });
 
+// Fetch popular TV shows from TMDb
+export const getPopularTVShows = action({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return [];
+      
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+      const limit = args.limit ?? 50;
+      
+      // Fetch popular TV shows
+      const response = await axios.get(`${baseUrl}/tv/popular`, {
+        params: { api_key: apiKey }
+      });
+      
+      const shows = (response.data?.results ?? []).slice(0, limit) as Array<any>;
+      
+      // Get detailed info for each show
+      const detailedShows: Array<any> = [];
+      for (const show of shows) {
+        try {
+          const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
+            params: { api_key: apiKey }
+          });
+          
+          const showDetail = detailResponse.data;
+          
+          detailedShows.push({
+            tmdbId: showDetail.id,
+            name: showDetail.name,
+            overview: showDetail.overview || "",
+            firstAirDate: showDetail.first_air_date || "",
+            lastAirDate: showDetail.last_air_date || undefined,
+            posterPath: showDetail.poster_path || undefined,
+            backdropPath: showDetail.backdrop_path || undefined,
+            voteAverage: showDetail.vote_average || 0,
+            voteCount: showDetail.vote_count || 0,
+            genres: (showDetail.genres ?? []).map((g: any) => g.name) || [],
+            numberOfEpisodes: showDetail.number_of_episodes ?? undefined,
+            numberOfSeasons: showDetail.number_of_seasons ?? undefined,
+            status: showDetail.status || undefined,
+            originalLanguage: showDetail.original_language || "en",
+            popularity: showDetail.popularity || 0,
+            adult: showDetail.adult || false,
+            inProduction: showDetail.in_production || false,
+            source: "tmdb",
+          });
+        } catch (detailError) {
+          console.error("Error fetching TV show details:", detailError);
+        }
+      }
+      
+      return detailedShows;
+    } catch (error) {
+      console.error("Error fetching popular TV shows:", error);
+      return [];
+    }
+  },
+});
+
+// Fetch top-rated TV shows from TMDb
+export const getTopRatedTVShows = action({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return [];
+      
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+      const limit = args.limit ?? 50;
+      
+      // Fetch top-rated TV shows
+      const response = await axios.get(`${baseUrl}/tv/top_rated`, {
+        params: { api_key: apiKey }
+      });
+      
+      const shows = (response.data?.results ?? []).slice(0, limit) as Array<any>;
+      
+      // Get detailed info for each show
+      const detailedShows: Array<any> = [];
+      for (const show of shows) {
+        try {
+          const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
+            params: { api_key: apiKey }
+          });
+          
+          const showDetail = detailResponse.data;
+          
+          detailedShows.push({
+            tmdbId: showDetail.id,
+            name: showDetail.name,
+            overview: showDetail.overview || "",
+            firstAirDate: showDetail.first_air_date || "",
+            lastAirDate: showDetail.last_air_date || undefined,
+            posterPath: showDetail.poster_path || undefined,
+            backdropPath: showDetail.backdrop_path || undefined,
+            voteAverage: showDetail.vote_average || 0,
+            voteCount: showDetail.vote_count || 0,
+            genres: (showDetail.genres ?? []).map((g: any) => g.name) || [],
+            numberOfEpisodes: showDetail.number_of_episodes ?? undefined,
+            numberOfSeasons: showDetail.number_of_seasons ?? undefined,
+            status: showDetail.status || undefined,
+            originalLanguage: showDetail.original_language || "en",
+            popularity: showDetail.popularity || 0,
+            adult: showDetail.adult || false,
+            inProduction: showDetail.in_production || false,
+            source: "tmdb",
+          });
+        } catch (detailError) {
+          console.error("Error fetching TV show details:", detailError);
+        }
+      }
+      
+      return detailedShows;
+    } catch (error) {
+      console.error("Error fetching top-rated TV shows:", error);
+      return [];
+    }
+  },
+});
+
+// Fetch TV show credits from TMDb
+export const getTVShowCredits = action({
+  args: {
+    tmdbId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return { cast: [], crew: [] };
+      
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+      
+      const response = await axios.get(`${baseUrl}/tv/${args.tmdbId}/credits`, {
+        params: { api_key: apiKey }
+      });
+      
+      return {
+        cast: (response.data?.cast ?? []).map((actor: any) => ({
+          id: actor.id,
+          name: actor.name,
+          character: actor.character,
+          profilePath: actor.profile_path || undefined,
+          order: actor.order || 0,
+        })),
+        crew: (response.data?.crew ?? []).map((member: any) => ({
+          id: member.id,
+          name: member.name,
+          job: member.job,
+          department: member.department,
+          profilePath: member.profile_path || undefined,
+        })),
+      };
+    } catch (error) {
+      console.error("Error fetching TV show credits:", error);
+      return { cast: [], crew: [] };
+    }
+  },
+});
+
 export const generateTmdbCandidates = action({
   args: {
     query: v.string(),
@@ -839,7 +1004,7 @@ async function searchOMDB(args: any) {
   }
 }
 
-// Get OTT platform availability (JustWatch alternative using TMDB)
+// Get OTT platform availability for movies (JustWatch alternative using TMDB)
 export const getOTTPlatforms = action({
   args: {
     tmdbId: v.number(),
@@ -850,7 +1015,7 @@ export const getOTTPlatforms = action({
       if (!process.env.TMDB_API_KEY) return [];
       
       const baseUrl = "https://api.themoviedb.org/3";
-      const country = args.country || "IN"; // Default to India for Tamil movies
+      const country = args.country || "IN"; // Default to India
       
       const response = await axios.get(
         `${baseUrl}/movie/${args.tmdbId}/watch/providers`,
@@ -894,9 +1059,162 @@ export const getOTTPlatforms = action({
       }
       
       return platforms;
-    } catch (error) {
-      console.error("OTT platforms error:", error);
+    } catch (error: any) {
+      // 404 errors are expected for movies without watch provider data - don't log as errors
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      // Only log unexpected errors
+      if (error?.response?.status !== 404) {
+        console.error("OTT platforms error:", error?.message || error);
+      }
       return [];
+    }
+  },
+});
+
+// Get OTT platform availability for TV shows
+export const getTVShowOTTPlatforms = action({
+  args: {
+    tmdbId: v.number(),
+    country: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return [];
+      
+      const baseUrl = "https://api.themoviedb.org/3";
+      const country = args.country || "IN"; // Default to India
+      
+      const response = await axios.get(
+        `${baseUrl}/tv/${args.tmdbId}/watch/providers`,
+        {
+          params: {
+            api_key: process.env.TMDB_API_KEY,
+          }
+        }
+      );
+      
+      const providers = response.data.results?.[country];
+      if (!providers) return [];
+      
+      const platforms = [] as Array<{ name: string; type: string; logo: string }>;
+      
+      // Streaming platforms
+      if (providers.flatrate) {
+        platforms.push(...providers.flatrate.map((p: any) => ({
+          name: p.provider_name,
+          type: "stream",
+          logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
+        })));
+      }
+      
+      // Rental platforms
+      if (providers.rent) {
+        platforms.push(...providers.rent.map((p: any) => ({
+          name: p.provider_name,
+          type: "rent",
+          logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
+        })));
+      }
+      
+      // Purchase platforms
+      if (providers.buy) {
+        platforms.push(...providers.buy.map((p: any) => ({
+          name: p.provider_name,
+          type: "buy",
+          logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
+        })));
+      }
+      
+      return platforms;
+    } catch (error: any) {
+      // 404 errors are expected for TV shows without watch provider data - don't log as errors
+      if (error?.response?.status === 404) {
+        return [];
+      }
+      // Only log unexpected errors
+      if (error?.response?.status !== 404) {
+        console.error("TV show OTT platforms error:", error?.message || error);
+      }
+      return [];
+    }
+  },
+});
+
+// Fetch TV show seasons and episodes
+export const getTVShowSeasons = action({
+  args: {
+    tmdbId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return null;
+      
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+      
+      // Get TV show details with seasons
+      const response = await axios.get(`${baseUrl}/tv/${args.tmdbId}`, {
+        params: { 
+          api_key: apiKey,
+          append_to_response: "credits"
+        }
+      });
+      
+      const showData = response.data;
+      
+      // Fetch detailed season information
+      const seasons = [] as Array<any>;
+      for (const season of (showData.seasons || [])) {
+        try {
+          const seasonResponse = await axios.get(
+            `${baseUrl}/tv/${args.tmdbId}/season/${season.season_number}`,
+            { params: { api_key: apiKey } }
+          );
+          
+          const seasonData = seasonResponse.data;
+          seasons.push({
+            seasonNumber: seasonData.season_number,
+            name: seasonData.name,
+            overview: seasonData.overview || "",
+            airDate: seasonData.air_date || "",
+            episodeCount: seasonData.episodes?.length || 0,
+            posterPath: seasonData.poster_path || season.poster_path || undefined,
+            episodes: (seasonData.episodes || []).map((ep: any) => ({
+              episodeNumber: ep.episode_number,
+              name: ep.name,
+              overview: ep.overview || "",
+              airDate: ep.air_date || "",
+              runtime: ep.runtime || undefined,
+              voteAverage: ep.vote_average || 0,
+              voteCount: ep.vote_count || 0,
+              stillPath: ep.still_path || undefined,
+            })),
+          });
+        } catch (seasonError) {
+          console.error(`Error fetching season ${season.season_number}:`, seasonError);
+          // Add season without episodes if detail fetch fails
+          seasons.push({
+            seasonNumber: season.season_number,
+            name: season.name,
+            overview: season.overview || "",
+            airDate: season.air_date || "",
+            episodeCount: season.episode_count || 0,
+            posterPath: season.poster_path || undefined,
+            episodes: [],
+          });
+        }
+      }
+      
+      return {
+        showId: showData.id,
+        showName: showData.name,
+        seasons: seasons.sort((a, b) => a.seasonNumber - b.seasonNumber),
+      };
+    } catch (error) {
+      console.error("Error fetching TV show seasons:", error);
+      return null;
     }
   },
 });
