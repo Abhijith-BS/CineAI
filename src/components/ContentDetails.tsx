@@ -1,28 +1,44 @@
+
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import { toast } from "sonner";
+import { SignInModal } from "./SignInModal";
+import { ReviewsSection } from "./ReviewsSection";
 
 interface ContentDetailsProps {
-  contentId: string;
-  contentType: "movie" | "tv";
-  setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
+  contentId: any;
+  contentType: any;
+  setCurrentView: (view: any) => void;
   onGoHome: () => void;
+  onSignIn: () => void;
 }
 
-export function ContentDetails({ contentId, contentType, setCurrentView, onGoHome }: ContentDetailsProps) {
+export function ContentDetails({ contentId, contentType, setCurrentView, onGoHome, onSignIn }: ContentDetailsProps) {
   const movie = contentType === "movie" ? useQuery(api.movies.getMovieById, { id: contentId as any }) : null;
   const show = contentType === "tv" ? useQuery(api.movies.getShowById, { id: contentId as any }) : null;
+  const loggedInUser = useQuery(api.auth.loggedInUser);
   const addToFavorites = useMutation(api.movies.addToFavorites);
+  const addToWatchlist = useMutation(api.movies.addToWatchlist);
   const getOTTPlatforms = useAction(api.externalApi.getOTTPlatforms);
   const getTVShowOTTPlatforms = useAction(api.externalApi.getTVShowOTTPlatforms);
   const getTVShowSeasons = useAction(api.externalApi.getTVShowSeasons);
   const getTVShowCredits = useAction(api.externalApi.getTVShowCredits);
-  
+  const getContentLanguages = useAction(api.externalApi.getContentLanguages);
+
+  // Fetch interaction status (isFavorite, isWatchlisted)
+  const interactionStatus = useQuery(api.movies.getItemInteractionStatus, {
+    itemType: contentType,
+    itemId: contentId as any,
+  });
+
   const [ottPlatforms, setOttPlatforms] = useState<Array<{ name: string; type: string; logo: string }>>([]);
   const [seasons, setSeasons] = useState<any>(null);
   const [credits, setCredits] = useState<any>(null);
+  const [languages, setLanguages] = useState<string[]>([]);
   const [loadingOTT, setLoadingOTT] = useState(true);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const content = contentType === "movie" ? movie : show;
@@ -37,7 +53,7 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
           const platforms = contentType === "movie"
             ? await getOTTPlatforms({ tmdbId, country: "IN" })
             : await getTVShowOTTPlatforms({ tmdbId, country: "IN" });
-          
+
           if (platforms && Array.isArray(platforms) && platforms.length > 0) {
             setOttPlatforms(platforms);
           } else {
@@ -75,6 +91,21 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
       fetchTVDetails();
     }
   }, [tmdbId, contentType, getTVShowSeasons, getTVShowCredits]);
+
+  // Fetch available languages
+  useEffect(() => {
+    if (tmdbId && contentType) {
+      const fetchLanguages = async () => {
+        try {
+          const langs = await getContentLanguages({ tmdbId, type: contentType });
+          setLanguages(langs);
+        } catch (error) {
+          console.error("Error fetching languages:", error);
+        }
+      };
+      fetchLanguages();
+    }
+  }, [tmdbId, contentType, getContentLanguages]);
 
   // Animate page entrance
   useEffect(() => {
@@ -117,31 +148,75 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
   const budget = contentType === "movie" ? (content as any).budget : undefined;
   const revenue = contentType === "movie" ? (content as any).revenue : undefined;
 
-  const backdropUrl = (content as any).backdropPath 
+  const backdropUrl = (content as any).backdropPath
     ? ((content as any).backdropPath.startsWith("http://") || (content as any).backdropPath.startsWith("https://"))
       ? (content as any).backdropPath
       : `https://image.tmdb.org/t/p/w1280${(content as any).backdropPath}`
     : null;
-  
-  const posterUrl = (content as any).posterPath 
+
+  const posterUrl = (content as any).posterPath
     ? ((content as any).posterPath.startsWith("http://") || (content as any).posterPath.startsWith("https://"))
       ? (content as any).posterPath
       : `https://image.tmdb.org/t/p/w500${(content as any).posterPath}`
     : null;
 
+
+
+
   const handleAddToFavorites = async () => {
+    if (!loggedInUser || !loggedInUser.email) {
+      setShowSignInModal(true);
+      return;
+    }
+
     try {
-      await addToFavorites({
+      const result = await addToFavorites({
         itemType: contentType,
         itemId: contentId as any,
       });
+      if (result.added) {
+        toast.success("Added to favorites");
+      } else {
+        toast.success("Removed from favorites");
+      }
     } catch (error) {
-      console.error("Error adding to favorites:", error);
+      console.error("Error toggling favorites:", error);
+      toast.error("Failed to update favorites");
+    }
+  };
+
+  const handleAddToWatchlist = async () => {
+    if (!loggedInUser || !loggedInUser.email) {
+      setShowSignInModal(true);
+      return;
+    }
+
+    try {
+      const result = await addToWatchlist({
+        itemType: contentType,
+        itemId: contentId as any,
+      });
+      if (result.added) {
+        toast.success("Added to watchlist");
+      } else {
+        toast.success("Removed from watchlist");
+      }
+    } catch (error) {
+      console.error("Error toggling watchlist:", error);
+      toast.error("Failed to update watchlist");
     }
   };
 
   return (
     <div ref={containerRef} className="space-y-8">
+      <SignInModal
+        isOpen={showSignInModal}
+        onClose={() => setShowSignInModal(false)}
+        onSignIn={() => {
+          setShowSignInModal(false);
+          onSignIn();
+        }}
+      />
       {/* Back Button */}
       <button
         onClick={onGoHome}
@@ -172,7 +247,7 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
       </button>
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-2xl">
+      < div className="relative overflow-hidden rounded-2xl" >
         {backdropUrl && (
           <div className="absolute inset-0">
             <img
@@ -183,7 +258,7 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
           </div>
         )}
-        
+
         <div className="relative z-10 p-8 md:p-12">
           <div className="flex flex-col md:flex-row gap-8">
             {/* Poster */}
@@ -260,11 +335,16 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
               <div className="flex space-x-4">
                 <button
                   onClick={handleAddToFavorites}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl hover:shadow-purple-500/50"
+                  className={`px-6 py-3 font-semibold rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl ${interactionStatus?.isFavorite
+                    ? "bg-red-600 hover:bg-red-700 text-white hover:shadow-red-500/50"
+                    : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:shadow-purple-500/50"
+                    }`}
                   onMouseEnter={(e) => {
                     gsap.to(e.currentTarget, {
                       scale: 1.1,
-                      boxShadow: "0 20px 40px rgba(168, 85, 247, 0.5)",
+                      boxShadow: interactionStatus?.isFavorite
+                        ? "0 20px 40px rgba(220, 38, 38, 0.5)"
+                        : "0 20px 40px rgba(168, 85, 247, 0.5)",
                       duration: 0.3,
                       ease: "power2.out",
                     });
@@ -278,14 +358,20 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
                     });
                   }}
                 >
-                  Add to Favorites
+                  {interactionStatus?.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                 </button>
-                <button 
-                  className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105"
+                <button
+                  onClick={handleAddToWatchlist}
+                  className={`px-6 py-3 font-semibold rounded-full transition-all duration-300 transform hover:scale-105 ${interactionStatus?.isWatchlisted
+                    ? "bg-red-900/50 hover:bg-red-900/70 text-red-200 border border-red-800"
+                    : "bg-white/20 hover:bg-white/30 text-white"
+                    }`}
                   onMouseEnter={(e) => {
                     gsap.to(e.currentTarget, {
                       scale: 1.05,
-                      backgroundColor: "rgba(255, 255, 255, 0.3)",
+                      backgroundColor: interactionStatus?.isWatchlisted
+                        ? "rgba(127, 29, 29, 0.7)"
+                        : "rgba(255, 255, 255, 0.3)",
                       duration: 0.3,
                       ease: "power2.out",
                     });
@@ -293,28 +379,31 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
                   onMouseLeave={(e) => {
                     gsap.to(e.currentTarget, {
                       scale: 1,
-                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      backgroundColor: interactionStatus?.isWatchlisted
+                        ? "rgba(127, 29, 29, 0.5)"
+                        : "rgba(255, 255, 255, 0.2)",
                       duration: 0.3,
                       ease: "power2.out",
                     });
                   }}
                 >
-                  Add to Watchlist
+                  {interactionStatus?.isWatchlisted ? "Remove from Watchlist" : "Add to Watchlist"}
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* OTT Platforms Section */}
-      <section className="bg-white/10 rounded-lg p-6">
+      < section className="bg-white/10 rounded-lg p-6" >
         <h3 className="text-xl font-semibold text-white mb-4">Where to Watch</h3>
-        {loadingOTT ? (
-          <div className="flex items-center justify-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
-          </div>
-        ) : ottPlatforms.length > 0 ? (
+        {
+          loadingOTT ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
+            </div>
+          ) : ottPlatforms.length > 0 ? (
             <div className="space-y-4">
               {ottPlatforms.filter(p => p.type === "stream").length > 0 && (
                 <div>
@@ -364,105 +453,112 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
             </div>
           ) : (
             <p className="text-gray-400">Streaming information not available at this time.</p>
-          )}
-        </section>
+          )
+        }
+      </section >
 
       {/* TV Show Seasons Section */}
-      {contentType === "tv" && seasons && seasons.seasons && seasons.seasons.length > 0 && (
-        <section className="bg-white/10 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-white mb-6">Seasons & Episodes</h3>
-          <div className="space-y-6">
-            {seasons.seasons.map((season: any) => (
-              <div key={season.seasonNumber} className="border-b border-white/10 pb-6 last:border-b-0">
-                <div className="flex items-start gap-4 mb-4">
-                  {season.posterPath && (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w154${season.posterPath}`}
-                      alt={season.name}
-                      className="w-24 h-36 object-cover rounded-lg"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <h4 className="text-lg font-semibold text-white mb-2">
-                      {season.name || `Season ${season.seasonNumber}`}
-                    </h4>
-                    {season.overview && (
-                      <p className="text-gray-300 text-sm mb-2">{season.overview}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                      {season.airDate && (
-                        <span>{new Date(season.airDate).getFullYear()}</span>
+      {
+        contentType === "tv" && seasons && seasons.seasons && seasons.seasons.length > 0 && (
+          <section className="bg-white/10 rounded-lg p-6">
+            <h3 className="text-xl font-semibold text-white mb-6">Seasons & Episodes</h3>
+            <div className="space-y-6">
+              {seasons.seasons
+                .filter((season: any) => season.name !== "Specials" && season.seasonNumber !== 0)
+                .map((season: any) => (
+                  <div key={season.seasonNumber} className="border-b border-white/10 pb-6 last:border-b-0">
+                    <div className="flex items-start gap-4 mb-4">
+                      {season.posterPath && (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w154${season.posterPath}`}
+                          alt={season.name}
+                          className="w-24 h-36 object-cover rounded-lg"
+                        />
                       )}
-                      <span>{season.episodeCount} Episodes</span>
-                    </div>
-                  </div>
-                </div>
-                {season.episodes && season.episodes.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-                    {season.episodes.map((episode: any) => (
-                      <div key={episode.episodeNumber} className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">
-                        <div className="flex items-start gap-3">
-                          {episode.stillPath && (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w185${episode.stillPath}`}
-                              alt={episode.name}
-                              className="w-20 h-12 object-cover rounded"
-                            />
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-white mb-2">
+                          {season.name || `Season ${season.seasonNumber}`}
+                        </h4>
+                        {season.overview && (
+                          <p className="text-gray-300 text-sm mb-2">{season.overview}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          {season.airDate && (
+                            <span>{new Date(season.airDate).getFullYear()}</span>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-semibold text-purple-400">
-                                E{episode.episodeNumber}
-                              </span>
-                              {episode.voteAverage > 0 && (
-                                <span className="text-xs text-yellow-400">⭐ {episode.voteAverage.toFixed(1)}</span>
+                          <span>{season.episodeCount} Episodes</span>
+                        </div>
+                      </div>
+                    </div>
+                    {season.episodes && season.episodes.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                        {season.episodes.map((episode: any) => (
+                          <div key={episode.episodeNumber} className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors">
+                            <div className="flex items-start gap-3">
+                              {episode.stillPath && (
+                                <img
+                                  src={`https://image.tmdb.org/t/p/w185${episode.stillPath}`}
+                                  alt={episode.name}
+                                  className="w-20 h-12 object-cover rounded"
+                                />
                               )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-semibold text-purple-400">
+                                    E{episode.episodeNumber}
+                                  </span>
+                                  {episode.voteAverage > 0 && (
+                                    <span className="text-xs text-yellow-400">⭐ {episode.voteAverage.toFixed(1)}</span>
+                                  )}
+                                </div>
+                                <h5 className="text-sm font-medium text-white truncate">{episode.name}</h5>
+                                {episode.runtime && (
+                                  <p className="text-xs text-gray-400 mt-1">{episode.runtime} min</p>
+                                )}
+                                {episode.airDate && (
+                                  <p className="text-xs text-gray-400">{new Date(episode.airDate).toLocaleDateString()}</p>
+                                )}
+                              </div>
                             </div>
-                            <h5 className="text-sm font-medium text-white truncate">{episode.name}</h5>
-                            {episode.runtime && (
-                              <p className="text-xs text-gray-400 mt-1">{episode.runtime} min</p>
-                            )}
-                            {episode.airDate && (
-                              <p className="text-xs text-gray-400">{new Date(episode.airDate).toLocaleDateString()}</p>
+                            {episode.overview && (
+                              <p className="text-xs text-gray-300 mt-2 line-clamp-2">{episode.overview}</p>
                             )}
                           </div>
-                        </div>
-                        {episode.overview && (
-                          <p className="text-xs text-gray-300 mt-2 line-clamp-2">{episode.overview}</p>
-                        )}
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+                ))}
+            </div>
+          </section>
+        )
+      }
 
       {/* Cast & Crew Section */}
-      {credits && credits.cast && credits.cast.length > 0 && (
-        <section className="bg-white/10 rounded-lg p-6">
-          <h3 className="text-xl font-semibold text-white mb-4">Cast</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {credits.cast.slice(0, 12).map((actor: any) => (
-              <div key={actor.id} className="text-center">
-                {actor.profilePath && (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w185${actor.profilePath}`}
-                    alt={actor.name}
-                    className="w-full aspect-[2/3] object-cover rounded-lg mb-2"
-                  />
-                )}
-                <p className="text-sm font-medium text-white">{actor.name}</p>
-                {actor.character && (
-                  <p className="text-xs text-gray-400">{actor.character}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {
+        credits && credits.cast && credits.cast.length > 0 && (
+          <section className="bg-white/10 rounded-lg p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Cast</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {credits.cast.slice(0, 12).map((actor: any) => (
+                <div key={actor.id} className="text-center">
+                  {actor.profilePath && (
+                    <img
+                      src={`https://image.tmdb.org/t/p/w185${actor.profilePath}`}
+                      alt={actor.name}
+                      className="w-full aspect-[2/3] object-cover rounded-lg mb-2"
+                    />
+                  )}
+                  <p className="text-sm font-medium text-white">{actor.name}</p>
+                  {actor.character && (
+                    <p className="text-xs text-gray-400">{actor.character}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      }
 
       {/* Additional Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -476,9 +572,27 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
               <span className="text-white ml-2">{status || (contentType === "movie" ? "Released" : "Unknown")}</span>
             </div>
             <div>
-              <span className="text-gray-400">Language:</span>
-              <span className="text-white ml-2">{(content as any).originalLanguage.toUpperCase()}</span>
+              <span className="text-gray-400">Original Language:</span>
+              <span className="text-white ml-2">
+                {new Intl.DisplayNames(['en'], { type: 'language' }).of((content as any).originalLanguage) || (content as any).originalLanguage.toUpperCase()}
+              </span>
             </div>
+            {languages.filter(l =>
+              l.toLowerCase() !== new Intl.DisplayNames(['en'], { type: 'language' }).of((content as any).originalLanguage)?.toLowerCase() &&
+              l.toLowerCase() !== (content as any).originalLanguage.toLowerCase()
+            ).length > 0 && (
+                <div>
+                  <span className="text-gray-400">Also available in:</span>
+                  <span className="text-white ml-2">
+                    {languages
+                      .filter(l =>
+                        l.toLowerCase() !== new Intl.DisplayNames(['en'], { type: 'language' }).of((content as any).originalLanguage)?.toLowerCase() &&
+                        l.toLowerCase() !== (content as any).originalLanguage.toLowerCase()
+                      )
+                      .join(", ")}
+                  </span>
+                </div>
+              )}
             {contentType === "movie" && budget && budget > 0 && (
               <div>
                 <span className="text-gray-400">Budget:</span>
@@ -520,7 +634,7 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
               <span className="text-white font-semibold">{(content as any).voteAverage.toFixed(1)}/10</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
+              <div
                 className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full"
                 style={{ width: `${((content as any).voteAverage / 10) * 100}%` }}
               ></div>
@@ -542,7 +656,10 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Reviews Section */}
+      <ReviewsSection contentType={contentType} contentId={tmdbId || contentId} />
+    </div >
   );
 }
 

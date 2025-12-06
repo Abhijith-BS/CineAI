@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 
 interface HomePageProps {
-  setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
+  setCurrentView: (view: "home" | "chat" | "movie" | "search" | "favorites" | "watchlist") => void;
   setSelectedMovieId: (id: string) => void;
   setSelectedContentType: (type: "movie" | "tv") => void;
 }
@@ -33,19 +33,19 @@ export function HomePage({ setCurrentView, setSelectedMovieId, setSelectedConten
   const populateTopRatedTVShows = useAction(api.movies.populateTopRatedTVShows);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionsRef = useRef<HTMLElement[]>([]);
-  
+
   // Store shuffled results - only shuffle once when data first loads
   const [shuffledTrendingMovies, setShuffledTrendingMovies] = useState<typeof allTrendingMovies>(undefined);
   const [shuffledTrendingShows, setShuffledTrendingShows] = useState<typeof allTrendingShows>(undefined);
   const [shuffledTopRatedMovies, setShuffledTopRatedMovies] = useState<typeof allTopRatedMovies>(undefined);
   const [shuffledTopRatedShows, setShuffledTopRatedShows] = useState<typeof allTopRatedShows>(undefined);
-  
+
   // Use refs to track if we've already shuffled (prevents reshuffling on data updates)
   const hasShuffledTrending = useRef(false);
   const hasShuffledShows = useRef(false);
   const hasShuffledTopRated = useRef(false);
   const hasShuffledTopRatedShows = useRef(false);
-  
+
   // Shuffle movies only once when data first loads (on mount/refresh)
   useEffect(() => {
     if (allTrendingMovies && !hasShuffledTrending.current) {
@@ -53,28 +53,28 @@ export function HomePage({ setCurrentView, setSelectedMovieId, setSelectedConten
       hasShuffledTrending.current = true;
     }
   }, [allTrendingMovies]);
-  
+
   useEffect(() => {
     if (allTrendingShows && !hasShuffledShows.current) {
       setShuffledTrendingShows(shuffleArray(allTrendingShows).slice(0, 12));
       hasShuffledShows.current = true;
     }
   }, [allTrendingShows]);
-  
+
   useEffect(() => {
     if (allTopRatedMovies && !hasShuffledTopRated.current) {
       setShuffledTopRatedMovies(shuffleArray(allTopRatedMovies).slice(0, 12));
       hasShuffledTopRated.current = true;
     }
   }, [allTopRatedMovies]);
-  
+
   useEffect(() => {
     if (allTopRatedShows && !hasShuffledTopRatedShows.current) {
       setShuffledTopRatedShows(shuffleArray(allTopRatedShows).slice(0, 12));
       hasShuffledTopRatedShows.current = true;
     }
   }, [allTopRatedShows]);
-  
+
   const trendingMovies = shuffledTrendingMovies;
   const trendingShows = shuffledTrendingShows;
   const topRatedMovies = shuffledTopRatedMovies;
@@ -107,14 +107,14 @@ export function HomePage({ setCurrentView, setSelectedMovieId, setSelectedConten
     if (containerRef.current) {
       // Set container to visible immediately
       gsap.set(containerRef.current, { opacity: 1, visibility: "visible" });
-      
+
       // Set sections to visible immediately
       if (sectionsRef.current.length > 0) {
         sectionsRef.current.forEach((section) => {
           gsap.set(section, { opacity: 1, visibility: "visible" });
         });
       }
-      
+
       // Ensure all movie cards are visible
       const movieCards = containerRef.current.querySelectorAll("[class*='group cursor-pointer']");
       movieCards.forEach((card) => {
@@ -132,18 +132,18 @@ export function HomePage({ setCurrentView, setSelectedMovieId, setSelectedConten
   return (
     <div ref={containerRef} className="space-y-12">
       {/* Hero Section */}
-      <section 
+      <section
         ref={(el) => {
           if (el) sectionsRef.current[0] = el;
         }}
         className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600/20 to-pink-600/20 p-8 md:p-12"
       >
         <div className="relative z-10">
-          <AnimatedHeading 
+          <AnimatedHeading
             text="Discover Movies with AI"
             className="mb-4"
           />
-          <p 
+          <p
             className="text-xl text-gray-300 mb-8 max-w-2xl"
           >
             Chat with our AI to find the perfect movie or show. Just describe what you're in the mood for!

@@ -22,6 +22,7 @@ const applicationTables = {
     popularity: v.number(),
     adult: v.boolean(),
     video: v.boolean(),
+    languages: v.optional(v.array(v.string())), // Available languages
   })
     .index("by_tmdb_id", ["tmdbId"])
     .index("by_popularity", ["popularity"])
@@ -49,6 +50,7 @@ const applicationTables = {
     popularity: v.number(),
     adult: v.boolean(),
     inProduction: v.boolean(),
+    languages: v.optional(v.array(v.string())), // Available languages
   })
     .index("by_tmdb_id", ["tmdbId"])
     .index("by_popularity", ["popularity"])
@@ -82,6 +84,27 @@ const applicationTables = {
   })
     .index("by_user", ["userId"])
     .index("by_user_and_type", ["userId", "itemType"]),
+
+  search_history: defineTable({
+    userId: v.id("users"),
+    query: v.string(),
+    timestamp: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_timestamp", ["userId", "timestamp"]),
+
+  reviews: defineTable({
+    userId: v.id("users"),
+    userName: v.string(), // Store snapshot of name for simplicity
+    contentType: v.union(v.literal("movie"), v.literal("tv")),
+    contentId: v.number(), // TMDB ID
+    content: v.string(),
+    timestamp: v.number(),
+    edited: v.optional(v.boolean()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_content", ["contentType", "contentId"])
+    .index("by_content_and_time", ["contentType", "contentId", "timestamp"]),
 };
 
 export default defineSchema({

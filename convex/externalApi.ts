@@ -16,24 +16,21 @@ export const searchExternalMovies = action({
   handler: async (ctx, args) => {
     try {
       const results = [] as Array<any>;
-      
+
       // Try TMDB API first (most comprehensive)
       if (process.env.TMDB_API_KEY) {
         const tmdbResults = await searchTMDB(args);
         results.push(...tmdbResults);
       }
-      
-      // Try OMDb API as fallback
-      if (process.env.OMDB_API_KEY && results.length < 5) {
-        const omdbResults = await searchOMDB(args);
-        results.push(...omdbResults);
-      }
-      
+
+      // REMOVED OMDb API fallback to prevent duplicate entries with fake IDs
+      // if (process.env.OMDB_API_KEY && results.length < 5) { ... }
+
       // If no API keys are configured, return sample results based on query
       if (results.length === 0) {
         return generateSampleResults(args);
       }
-      
+
       // Sort by relevance and rating and dedupe
       const seen = new Set<number>();
       const deduped = results.filter((m) => {
@@ -46,7 +43,7 @@ export const searchExternalMovies = action({
       return deduped
         .sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0))
         .slice(0, 20);
-        
+
     } catch (error) {
       console.error("External API search error:", error);
       // Return sample results as fallback
@@ -67,18 +64,18 @@ export const searchExternalTVShows = action({
   handler: async (ctx, args) => {
     try {
       const results = [] as Array<any>;
-      
+
       // Try TMDB API first (most comprehensive)
       if (process.env.TMDB_API_KEY) {
         const tmdbResults = await searchTMDBTV(args);
         results.push(...tmdbResults);
       }
-      
+
       // If no API keys are configured, return empty results
       if (results.length === 0) {
         return [];
       }
-      
+
       // Sort by relevance and rating and dedupe
       const seen = new Set<number>();
       const deduped = results.filter((s) => {
@@ -91,7 +88,7 @@ export const searchExternalTVShows = action({
       return deduped
         .sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0))
         .slice(0, 20);
-        
+
     } catch (error) {
       console.error("External TV show API search error:", error);
       return [];
@@ -107,18 +104,18 @@ export const getTrendingTVShows = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return [];
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const apiKey = process.env.TMDB_API_KEY;
       const limit = args.limit ?? 50;
-      
+
       // Fetch trending TV shows
       const response = await axios.get(`${baseUrl}/trending/tv/week`, {
         params: { api_key: apiKey }
       });
-      
+
       const shows = (response.data?.results ?? []).slice(0, limit) as Array<any>;
-      
+
       // Get detailed info for each show
       const detailedShows: Array<any> = [];
       for (const show of shows) {
@@ -126,9 +123,9 @@ export const getTrendingTVShows = action({
           const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
             params: { api_key: apiKey }
           });
-          
+
           const showDetail = detailResponse.data;
-          
+
           detailedShows.push({
             tmdbId: showDetail.id,
             name: showDetail.name,
@@ -153,7 +150,7 @@ export const getTrendingTVShows = action({
           console.error("Error fetching TV show details:", detailError);
         }
       }
-      
+
       return detailedShows;
     } catch (error) {
       console.error("Error fetching trending TV shows:", error);
@@ -170,18 +167,18 @@ export const getPopularTVShows = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return [];
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const apiKey = process.env.TMDB_API_KEY;
       const limit = args.limit ?? 50;
-      
+
       // Fetch popular TV shows
       const response = await axios.get(`${baseUrl}/tv/popular`, {
         params: { api_key: apiKey }
       });
-      
+
       const shows = (response.data?.results ?? []).slice(0, limit) as Array<any>;
-      
+
       // Get detailed info for each show
       const detailedShows: Array<any> = [];
       for (const show of shows) {
@@ -189,9 +186,9 @@ export const getPopularTVShows = action({
           const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
             params: { api_key: apiKey }
           });
-          
+
           const showDetail = detailResponse.data;
-          
+
           detailedShows.push({
             tmdbId: showDetail.id,
             name: showDetail.name,
@@ -216,7 +213,7 @@ export const getPopularTVShows = action({
           console.error("Error fetching TV show details:", detailError);
         }
       }
-      
+
       return detailedShows;
     } catch (error) {
       console.error("Error fetching popular TV shows:", error);
@@ -233,18 +230,18 @@ export const getTopRatedTVShows = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return [];
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const apiKey = process.env.TMDB_API_KEY;
       const limit = args.limit ?? 50;
-      
+
       // Fetch top-rated TV shows
       const response = await axios.get(`${baseUrl}/tv/top_rated`, {
         params: { api_key: apiKey }
       });
-      
+
       const shows = (response.data?.results ?? []).slice(0, limit) as Array<any>;
-      
+
       // Get detailed info for each show
       const detailedShows: Array<any> = [];
       for (const show of shows) {
@@ -252,9 +249,9 @@ export const getTopRatedTVShows = action({
           const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
             params: { api_key: apiKey }
           });
-          
+
           const showDetail = detailResponse.data;
-          
+
           detailedShows.push({
             tmdbId: showDetail.id,
             name: showDetail.name,
@@ -279,7 +276,7 @@ export const getTopRatedTVShows = action({
           console.error("Error fetching TV show details:", detailError);
         }
       }
-      
+
       return detailedShows;
     } catch (error) {
       console.error("Error fetching top-rated TV shows:", error);
@@ -296,14 +293,14 @@ export const getTVShowCredits = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return { cast: [], crew: [] };
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const apiKey = process.env.TMDB_API_KEY;
-      
+
       const response = await axios.get(`${baseUrl}/tv/${args.tmdbId}/credits`, {
         params: { api_key: apiKey }
       });
-      
+
       return {
         cast: (response.data?.cast ?? []).map((actor: any) => ({
           id: actor.id,
@@ -384,7 +381,7 @@ export const generateTmdbCandidates = action({
             axios.get(`${baseUrl}/movie/${seed.id}/similar`, { params: { api_key: apiKey, page: 1, region } }),
             axios.get(`${baseUrl}/movie/${seed.id}/recommendations`, { params: { api_key: apiKey, page: 1, region } }),
           ]);
-          prioritized = [ ...(similar.data?.results ?? []), ...(recs.data?.results ?? []) ];
+          prioritized = [...(similar.data?.results ?? []), ...(recs.data?.results ?? [])];
         }
       }
     } catch (e) {
@@ -516,7 +513,7 @@ export const resolveTitlesToTmdb = action({
           video: x.video || false,
           source: "tmdb",
         });
-      } catch {}
+      } catch { }
     }
     return out;
   }
@@ -707,9 +704,9 @@ async function searchTMDB(args: any) {
         const detailResponse = await axios.get(`${baseUrl}/movie/${movie.id}`, {
           params: { api_key: apiKey }
         });
-        
+
         const movieDetail = detailResponse.data;
-        
+
         // Check genre filter
         if (args.genre) {
           const hasGenre = (movieDetail.genres ?? []).some((g: any) =>
@@ -717,7 +714,7 @@ async function searchTMDB(args: any) {
           );
           if (!hasGenre) continue;
         }
-        
+
         detailedMovies.push({
           tmdbId: movieDetail.id,
           title: movieDetail.title,
@@ -738,12 +735,13 @@ async function searchTMDB(args: any) {
           adult: movieDetail.adult || false,
           video: movieDetail.video || false,
           source: "tmdb",
+          languages: (movieDetail.spoken_languages ?? []).map((l: any) => l.english_name || l.name) || [],
         });
       } catch (detailError) {
         console.error("Error fetching movie details:", detailError);
       }
     }
-    
+
     return detailedMovies;
   } catch (error) {
     console.error("TMDB API error:\n", error);
@@ -859,9 +857,9 @@ async function searchTMDBTV(args: any) {
         const detailResponse = await axios.get(`${baseUrl}/tv/${show.id}`, {
           params: { api_key: apiKey }
         });
-        
+
         const showDetail = detailResponse.data;
-        
+
         // Check genre filter
         if (args.genre) {
           const hasGenre = (showDetail.genres ?? []).some((g: any) =>
@@ -869,7 +867,7 @@ async function searchTMDBTV(args: any) {
           );
           if (!hasGenre) continue;
         }
-        
+
         detailedShows.push({
           tmdbId: showDetail.id,
           name: showDetail.name,
@@ -889,12 +887,13 @@ async function searchTMDBTV(args: any) {
           adult: showDetail.adult || false,
           inProduction: showDetail.in_production || false,
           source: "tmdb",
+          languages: (showDetail.spoken_languages ?? []).map((l: any) => l.english_name || l.name) || [],
         });
       } catch (detailError) {
         console.error("Error fetching TV show details:", detailError);
       }
     }
-    
+
     return detailedShows;
   } catch (error) {
     console.error("TMDB TV API error:\n", error);
@@ -920,20 +919,20 @@ async function searchOMDB(args: any) {
   try {
     const apiKey = process.env.OMDB_API_KEY;
     const baseUrl = "http://www.omdbapi.com/";
-    
+
     const params: any = {
       apikey: apiKey,
       s: args.query,
       type: "movie",
     };
-    
+
     if (args.year) {
       params.y = args.year;
     }
-    
+
     const response = await axios.get(baseUrl, { params });
     const movies = response.data.Search || [];
-    
+
     const detailedMovies = [] as Array<any>;
     for (const movie of movies.slice(0, 5)) {
       try {
@@ -944,11 +943,11 @@ async function searchOMDB(args: any) {
             plot: "full"
           }
         });
-        
+
         const movieDetail = detailResponse.data;
-        
+
         if (movieDetail.Response === "False") continue;
-        
+
         // Filter by language if specified
         if (args.language) {
           const languages = String(movieDetail.Language || "").toLowerCase();
@@ -956,7 +955,7 @@ async function searchOMDB(args: any) {
             continue;
           }
         }
-        
+
         // Filter by genre if specified
         if (args.genre) {
           const genres = String(movieDetail.Genre || "").toLowerCase();
@@ -964,13 +963,13 @@ async function searchOMDB(args: any) {
             continue;
           }
         }
-        
+
         // Filter by rating if specified
         const imdbRating = parseFloat(movieDetail.imdbRating) || 0;
         if (args.minRating && imdbRating < args.minRating) {
           continue;
         }
-        
+
         detailedMovies.push({
           tmdbId: parseInt(String(movie.imdbID).replace("tt", "")) || 0,
           title: movieDetail.Title,
@@ -996,7 +995,7 @@ async function searchOMDB(args: any) {
         console.error("Error fetching OMDb movie details:", detailError);
       }
     }
-    
+
     return detailedMovies;
   } catch (error) {
     console.error("OMDb API error:", error);
@@ -1013,10 +1012,10 @@ export const getOTTPlatforms = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return [];
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const country = args.country || "IN"; // Default to India
-      
+
       const response = await axios.get(
         `${baseUrl}/movie/${args.tmdbId}/watch/providers`,
         {
@@ -1025,12 +1024,12 @@ export const getOTTPlatforms = action({
           }
         }
       );
-      
+
       const providers = response.data.results?.[country];
       if (!providers) return [];
-      
+
       const platforms = [] as Array<{ name: string; type: string; logo: string }>;
-      
+
       // Streaming platforms
       if (providers.flatrate) {
         platforms.push(...providers.flatrate.map((p: any) => ({
@@ -1039,7 +1038,7 @@ export const getOTTPlatforms = action({
           logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
         })));
       }
-      
+
       // Rental platforms
       if (providers.rent) {
         platforms.push(...providers.rent.map((p: any) => ({
@@ -1048,7 +1047,7 @@ export const getOTTPlatforms = action({
           logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
         })));
       }
-      
+
       // Purchase platforms
       if (providers.buy) {
         platforms.push(...providers.buy.map((p: any) => ({
@@ -1057,7 +1056,7 @@ export const getOTTPlatforms = action({
           logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
         })));
       }
-      
+
       return platforms;
     } catch (error: any) {
       // 404 errors are expected for movies without watch provider data - don't log as errors
@@ -1082,10 +1081,10 @@ export const getTVShowOTTPlatforms = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return [];
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const country = args.country || "IN"; // Default to India
-      
+
       const response = await axios.get(
         `${baseUrl}/tv/${args.tmdbId}/watch/providers`,
         {
@@ -1094,12 +1093,12 @@ export const getTVShowOTTPlatforms = action({
           }
         }
       );
-      
+
       const providers = response.data.results?.[country];
       if (!providers) return [];
-      
+
       const platforms = [] as Array<{ name: string; type: string; logo: string }>;
-      
+
       // Streaming platforms
       if (providers.flatrate) {
         platforms.push(...providers.flatrate.map((p: any) => ({
@@ -1108,7 +1107,7 @@ export const getTVShowOTTPlatforms = action({
           logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
         })));
       }
-      
+
       // Rental platforms
       if (providers.rent) {
         platforms.push(...providers.rent.map((p: any) => ({
@@ -1117,7 +1116,7 @@ export const getTVShowOTTPlatforms = action({
           logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
         })));
       }
-      
+
       // Purchase platforms
       if (providers.buy) {
         platforms.push(...providers.buy.map((p: any) => ({
@@ -1126,7 +1125,7 @@ export const getTVShowOTTPlatforms = action({
           logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "",
         })));
       }
-      
+
       return platforms;
     } catch (error: any) {
       // 404 errors are expected for TV shows without watch provider data - don't log as errors
@@ -1150,20 +1149,20 @@ export const getTVShowSeasons = action({
   handler: async (ctx, args) => {
     try {
       if (!process.env.TMDB_API_KEY) return null;
-      
+
       const baseUrl = "https://api.themoviedb.org/3";
       const apiKey = process.env.TMDB_API_KEY;
-      
+
       // Get TV show details with seasons
       const response = await axios.get(`${baseUrl}/tv/${args.tmdbId}`, {
-        params: { 
+        params: {
           api_key: apiKey,
           append_to_response: "credits"
         }
       });
-      
+
       const showData = response.data;
-      
+
       // Fetch detailed season information
       const seasons = [] as Array<any>;
       for (const season of (showData.seasons || [])) {
@@ -1172,7 +1171,7 @@ export const getTVShowSeasons = action({
             `${baseUrl}/tv/${args.tmdbId}/season/${season.season_number}`,
             { params: { api_key: apiKey } }
           );
-          
+
           const seasonData = seasonResponse.data;
           seasons.push({
             seasonNumber: seasonData.season_number,
@@ -1206,7 +1205,7 @@ export const getTVShowSeasons = action({
           });
         }
       }
-      
+
       return {
         showId: showData.id,
         showName: showData.name,
@@ -1320,7 +1319,7 @@ export const fetchGoogleImage = action({
       }
 
       // Build search query: "movie title year poster"
-      const searchQuery = args.year 
+      const searchQuery = args.year
         ? `${args.title} ${args.year} movie poster`
         : `${args.title} movie poster`;
 
@@ -1365,6 +1364,86 @@ export const fetchGoogleImage = action({
     } catch (error) {
       console.error("Error fetching Google image:", error);
       return null;
+    }
+  },
+});
+
+/**
+ * Fetch available languages for a movie from Google Search
+ */
+export const fetchLanguagesFromGoogle = action({
+  args: {
+    title: v.string(),
+    year: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const apiKey = process.env.SERPER_API_KEY;
+      if (!apiKey) return [];
+
+      const query = `available languages for movie ${args.title} ${args.year || ""} wikipedia imdb`;
+
+      const response = await axios.post(
+        "https://google.serper.dev/search",
+        {
+          q: query,
+          num: 3,
+        },
+        {
+          headers: {
+            "X-API-KEY": apiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const snippets = (response.data?.organic || []).map((r: any) => r.snippet).join(" ").toLowerCase();
+
+      // Heuristic language detection from snippets
+      const commonLanguages = [
+        "english", "tamil", "hindi", "telugu", "malayalam", "kannada",
+        "bengali", "marathi", "korean", "japanese", "chinese", "spanish",
+        "french", "german", "russian"
+      ];
+
+      const foundLanguages = new Set<string>();
+      for (const lang of commonLanguages) {
+        if (snippets.includes(lang)) {
+          foundLanguages.add(lang.charAt(0).toUpperCase() + lang.slice(1));
+        }
+      }
+
+      return Array.from(foundLanguages);
+
+    } catch (error) {
+      console.error("Error fetching languages from Google:", error);
+      return [];
+    }
+  },
+});
+
+// Get spoken languages for a movie or TV show
+export const getContentLanguages = action({
+  args: {
+    tmdbId: v.number(),
+    type: v.union(v.literal("movie"), v.literal("tv")),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) return ["English"]; // Fallback
+
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+
+      const response = await axios.get(`${baseUrl}/${args.type}/${args.tmdbId}`, {
+        params: { api_key: apiKey }
+      });
+
+      const spokenLanguages = response.data?.spoken_languages || [];
+      return spokenLanguages.map((lang: any) => lang.english_name || lang.name);
+    } catch (error) {
+      console.error("Error fetching content languages:", error);
+      return [];
     }
   },
 });

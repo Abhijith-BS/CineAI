@@ -7,6 +7,7 @@ interface BaseLayoutProps {
   showHeader?: boolean;
   onLogoClick?: () => void;
   currentPage?: string;
+  headerContent?: ReactNode;
 }
 
 /**
@@ -25,11 +26,12 @@ interface BaseLayoutProps {
  * - contentAnimationDuration: Duration of content entrance (default: 1)
  * - Easing: Use "power4.out", "expo.out", "power2.out", etc.
  */
-export function BaseLayout({ 
-  children, 
+export function BaseLayout({
+  children,
   showHeader = true,
   onLogoClick,
-  currentPage 
+  currentPage,
+  headerContent
 }: BaseLayoutProps) {
   const layoutRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -49,14 +51,14 @@ export function BaseLayout({
   };
 
   // Header appears immediately without fade animation
-  useEffect(() => {
-    if (showHeader && headerRef.current) {
-      gsap.set(headerRef.current, {
-        opacity: 1,
-        y: 0,
-      });
-    }
-  }, [showHeader]);
+  // useEffect(() => {
+  //   if (showHeader && headerRef.current) {
+  //     gsap.set(headerRef.current, {
+  //       opacity: 1,
+  //       y: 0,
+  //     });
+  //   }
+  // }, [showHeader]);
 
   // Handle page transitions and content animation - runs after mount
   useEffect(() => {
@@ -65,7 +67,7 @@ export function BaseLayout({
       if (contentRef.current) {
         console.log("[BaseLayout] Animating content element:", contentRef.current);
         const isPageChange = previousPageRef.current !== currentPage && previousPageRef.current !== undefined;
-        
+
         // Remove fade animations - content appears immediately
         if (contentRef.current) {
           gsap.set(contentRef.current, {
@@ -86,12 +88,12 @@ export function BaseLayout({
   }, [currentPage]);
 
   return (
-    <div 
+    <div
       ref={layoutRef}
       className="min-h-screen bg-[#0d0d0d] relative overflow-x-hidden"
     >
       {/* Gradient background overlay matching landing page style */}
-      <div 
+      <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
           background: "radial-gradient(circle at 30% 50%, rgba(168, 85, 247, 0.2) 0%, transparent 50%), radial-gradient(circle at 70% 50%, rgba(236, 72, 153, 0.2) 0%, transparent 50%)",
@@ -102,7 +104,7 @@ export function BaseLayout({
       {showHeader && (
         <header
           ref={headerRef}
-          className="fixed top-0 left-0 right-0 z-50 bg-black/20 border-b border-white/10"
+          className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10"
         >
           <div className="container mx-auto px-4 h-16 flex justify-between items-center">
             <div className="flex items-center">
@@ -110,14 +112,19 @@ export function BaseLayout({
                 className="text-2xl"
                 onClick={onLogoClick}
               />
-              {/* Additional navigation can be added here via children or props */}
             </div>
+            {/* Header Content (Navigation) */}
+            {headerContent && (
+              <div className="flex-1 flex justify-between items-center ml-8">
+                {headerContent}
+              </div>
+            )}
           </div>
         </header>
       )}
 
       {/* Main Content Area with Padding for Fixed Header */}
-      <main 
+      <main
         ref={contentRef}
         className={`relative z-10 ${showHeader ? "pt-16" : ""}`}
         style={{ opacity: 1 }} // Ensure content is visible initially

@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
@@ -12,6 +12,8 @@ interface MovieDetailsProps {
 export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetailsProps) {
   const movie = useQuery(api.movies.getMovieById, { id: movieId as any });
   const addToFavorites = useMutation(api.movies.addToFavorites);
+  const fetchLanguages = useAction(api.externalApi.fetchLanguagesFromGoogle);
+  const updateLanguages = useMutation(api.movies.updateMovieLanguages);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Animate page entrance
@@ -34,6 +36,17 @@ export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetails
         stagger: 0.1,
         delay: 0.3,
       });
+
+      // Fetch languages if missing
+      if (!movie.languages || movie.languages.length === 0) {
+        fetchLanguages({ title: movie.title, year: movie.releaseDate ? parseInt(movie.releaseDate.split("-")[0]) : undefined })
+          .then((langs) => {
+            if (langs && langs.length > 0) {
+              updateLanguages({ movieId: movie._id, languages: langs });
+            }
+          })
+          .catch(console.error);
+      }
     }
   }, [movie]);
 
@@ -45,13 +58,13 @@ export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetails
     );
   }
 
-  const backdropUrl = movie.backdropPath 
+  const backdropUrl = movie.backdropPath
     ? (movie.backdropPath.startsWith("http://") || movie.backdropPath.startsWith("https://"))
       ? movie.backdropPath
       : `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
     : null;
-  
-  const posterUrl = movie.posterPath 
+
+  const posterUrl = movie.posterPath
     ? (movie.posterPath.startsWith("http://") || movie.posterPath.startsWith("https://"))
       ? movie.posterPath // Full URL from Google
       : `https://image.tmdb.org/t/p/w500${movie.posterPath}` // TMDB path
@@ -111,7 +124,7 @@ export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetails
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
           </div>
         )}
-        
+
         <div className="relative z-10 p-8 md:p-12">
           <div className="flex flex-col md:flex-row gap-8">
             {/* Poster */}
@@ -190,7 +203,7 @@ export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetails
                 >
                   Add to Favorites
                 </button>
-                <button 
+                <button
                   className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-full transition-all duration-300 transform hover:scale-105"
                   onMouseEnter={(e) => {
                     gsap.to(e.currentTarget, {
@@ -227,9 +240,15 @@ export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetails
               <span className="text-white ml-2">{movie.status || "Released"}</span>
             </div>
             <div>
-              <span className="text-gray-400">Language:</span>
+              <span className="text-gray-400">Original Language:</span>
               <span className="text-white ml-2">{movie.originalLanguage.toUpperCase()}</span>
             </div>
+            {movie.languages && movie.languages.length > 0 && (
+              <div>
+                <span className="text-gray-400">Available Languages:</span>
+                <span className="text-white ml-2">{movie.languages.join(", ")}</span>
+              </div>
+            )}
             {movie.budget && movie.budget > 0 && (
               <div>
                 <span className="text-gray-400">Budget:</span>
@@ -253,7 +272,7 @@ export function MovieDetails({ movieId, setCurrentView, onGoHome }: MovieDetails
               <span className="text-white font-semibold">{movie.voteAverage.toFixed(1)}/10</span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
+              <div
                 className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full"
                 style={{ width: `${(movie.voteAverage / 10) * 100}%` }}
               ></div>

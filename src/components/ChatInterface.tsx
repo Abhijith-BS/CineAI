@@ -6,7 +6,7 @@ import { AnimatedHeading } from "./AnimatedHeading";
 import gsap from "gsap";
 
 interface ChatInterfaceProps {
-  setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
+  setCurrentView: (view: "home" | "chat" | "movie" | "search" | "favorites" | "watchlist") => void;
   setSelectedMovieId: (id: string) => void;
   setSelectedContentType?: (type: "movie" | "tv") => void;
   onGoHome: () => void;
@@ -40,10 +40,10 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, setSelectedC
     const messageToSend = message.trim();
     setMessage("");
     setIsLoading(true);
-    
+
     try {
       const result = await chatWithAI({ message: messageToSend });
-      
+
       if (!result.success) {
         // Show error message to user
         alert(result.error || "Failed to send message. Please try again.");
@@ -82,7 +82,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, setSelectedC
           e.stopPropagation();
           onGoHome();
         }}
-        style={{ 
+        style={{
           position: 'fixed',
           top: '4.5rem',
           left: '0.5rem',
@@ -118,11 +118,11 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, setSelectedC
       <div className="bg-black/20 rounded-2xl border border-white/10 flex flex-col flex-1 min-h-0 overflow-hidden relative" style={{ zIndex: 1 }}>
         {/* Fixed Header - Will not scroll */}
         <div className="flex-shrink-0 p-6 pt-8 border-b border-white/10 bg-black/20 relative z-20">
-          <AnimatedHeading 
+          <AnimatedHeading
             text="Discover Movies with AI"
             className="mb-2 text-2xl md:text-3xl"
           />
-          <p 
+          <p
             className="text-gray-300"
           >
             Ask me about movies and TV shows from around the world!
@@ -286,7 +286,7 @@ export function ChatInterface({ setCurrentView, setSelectedMovieId, setSelectedC
           </div>
         </div>
       </div>
-      
+
       <style>{`
         /* Hide scrollbar for Chrome, Safari and Opera */
         div[style*="scrollbarWidth"]::-webkit-scrollbar {

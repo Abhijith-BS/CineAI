@@ -79,7 +79,7 @@ export const getShowById = query({
 
 // Enhanced search with external API integration
 export const searchContent = action({
-  args: { 
+  args: {
     query: v.string(),
     type: v.optional(v.union(v.literal("movie"), v.literal("tv"), v.literal("all"))),
     language: v.optional(v.string()),
@@ -107,15 +107,33 @@ export const searchContent = action({
           language: args.language,
           genre: args.genre,
         });
-        
+
         // Combine results, avoiding duplicates
         const existingMovieIds = new Set(results.movies.map(m => m.tmdbId));
         const existingShowIds = new Set(results.shows.map(s => s.tmdbId));
-        
+
         const newMovies = externalResults.movies.filter((m: any) => !existingMovieIds.has(m.tmdbId));
         const newShows = externalResults.shows.filter((s: any) => !existingShowIds.has(s.tmdbId));
-        
-        results.movies = [...results.movies, ...newMovies];
+
+        // Additional deduplication by title/year for movies to be safe against minor ID mismatches
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const finalNewMovies = [];
+        for (const m of newMovies) {
+          const mNorm = normalize(m.title);
+          const mYear = parseInt(m.releaseDate?.slice(0, 4) || "0");
+
+          const isDup = results.movies.some(existing => {
+            const eNorm = normalize(existing.title);
+            const eYear = parseInt(existing.releaseDate?.slice(0, 4) || "0");
+
+            // Match if normalized titles are identical AND years are within 1 (or one is missing)
+            return mNorm === eNorm && (mYear === 0 || eYear === 0 || Math.abs(mYear - eYear) <= 1);
+          });
+
+          if (!isDup) finalNewMovies.push(m);
+        }
+
+        results.movies = [...results.movies, ...finalNewMovies];
         results.shows = [...results.shows, ...newShows];
       } catch (error) {
         console.error("External search failed:", error);
@@ -135,9 +153,9 @@ export const searchWithExternalAPIs = action({
     year: v.optional(v.number()),
     minRating: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<{movies: any[], shows: any[], source: string}> => {
+  handler: async (ctx, args): Promise<{ movies: any[], shows: any[], source: string }> => {
     // First search local database
-    const localResults: {movies: any[], shows: any[]} = await ctx.runQuery(api.movies.searchLocalContent, {
+    const localResults: { movies: any[], shows: any[] } = await ctx.runQuery(api.movies.searchLocalContent, {
       query: args.query,
       type: "all", // Search both movies and TV shows
       language: args.language,
@@ -180,22 +198,22 @@ export const searchWithExternalAPIs = action({
         const existingMovie = await ctx.runQuery(api.movies.findByTmdbId, {
           tmdbId: movie.tmdbId
         });
-        
+
         if (!existingMovie) {
           // Remove non-schema fields (e.g., source)
           const { source, ...movieForInsert } = movie as any;
-          
+
           // If posterPath is missing, try to fetch from Google Images
           if (!movieForInsert.posterPath) {
             try {
-              const year = movieForInsert.releaseDate 
+              const year = movieForInsert.releaseDate
                 ? parseInt(movieForInsert.releaseDate.split("-")[0])
                 : undefined;
               const googleImageUrl = await ctx.runAction(api.externalApi.fetchGoogleImage, {
                 title: movieForInsert.title,
                 year: year,
               });
-              
+
               // Store Google image URL in posterPath (we'll handle it as external URL)
               if (googleImageUrl) {
                 movieForInsert.posterPath = googleImageUrl;
@@ -205,7 +223,7 @@ export const searchWithExternalAPIs = action({
               // Continue without poster if Google fetch fails
             }
           }
-          
+
           const movieId = await ctx.runMutation(internal.movies.insertMovie, movieForInsert);
           const storedMovie: any = await ctx.runQuery(api.movies.getMovieById, { id: movieId });
           if (storedMovie) storedMovies.push(storedMovie);
@@ -224,11 +242,11 @@ export const searchWithExternalAPIs = action({
         const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
           tmdbId: show.tmdbId
         });
-        
+
         if (!existingShow) {
           // Remove non-schema fields (e.g., source)
           const { source, ...showForInsert } = show as any;
-          
+
           const showId = await ctx.runMutation(internal.movies.insertShow, showForInsert);
           const storedShow: any = await ctx.runQuery(api.movies.getShowById, { id: showId });
           if (storedShow) storedShows.push(storedShow);
@@ -250,7 +268,7 @@ export const searchWithExternalAPIs = action({
 
 // Local database search
 export const searchLocalContent = query({
-  args: { 
+  args: {
     query: v.string(),
     type: v.optional(v.union(v.literal("movie"), v.literal("tv"), v.literal("all"))),
     language: v.optional(v.string()),
@@ -264,7 +282,7 @@ export const searchLocalContent = query({
       let movieQuery = ctx.db
         .query("movies")
         .withSearchIndex("search_movies", (q) => q.search("title", args.query));
-      
+
       results.movies = await movieQuery.take(10);
     }
 
@@ -272,7 +290,7 @@ export const searchLocalContent = query({
       let showQuery = ctx.db
         .query("tvShows")
         .withSearchIndex("search_shows", (q) => q.search("name", args.query));
-      
+
       results.shows = await showQuery.take(10);
     }
 
@@ -352,7 +370,7 @@ export const getUserFavorites = query({
     }
 
     const favorites = await favoritesQuery.collect();
-    
+
     const results = [];
     for (const fav of favorites) {
       if (fav.itemType === "movie") {
@@ -366,6 +384,111 @@ export const getUserFavorites = query({
 
     return results;
   },
+
+});
+
+// Add to watchlist
+export const addToWatchlist = mutation({
+  args: {
+    itemType: v.union(v.literal("movie"), v.literal("tv")),
+    itemId: v.union(v.id("movies"), v.id("tvShows")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Check if already in watchlist
+    const existing = await ctx.db
+      .query("watchlist")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.and(
+        q.eq(q.field("itemType"), args.itemType),
+        q.eq(q.field("itemId"), args.itemId)
+      ))
+      .first();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      return { added: false };
+    } else {
+      await ctx.db.insert("watchlist", {
+        userId,
+        itemType: args.itemType,
+        itemId: args.itemId,
+      });
+      return { added: true };
+    }
+  },
+});
+
+// Get user watchlist
+export const getUserWatchlist = query({
+  args: { type: v.optional(v.union(v.literal("movie"), v.literal("tv"))) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    let watchlistQuery = ctx.db
+      .query("watchlist")
+      .withIndex("by_user", (q) => q.eq("userId", userId));
+
+    if (args.type) {
+      watchlistQuery = watchlistQuery.filter((q) => q.eq(q.field("itemType"), args.type));
+    }
+
+    const watchlist = await watchlistQuery.collect();
+
+    const results = [];
+    for (const item of watchlist) {
+      if (item.itemType === "movie") {
+        const movie = await ctx.db.get(item.itemId as any);
+        if (movie) results.push({ ...movie, type: "movie" });
+      } else {
+        const show = await ctx.db.get(item.itemId as any);
+        if (show) results.push({ ...show, type: "tv" });
+      }
+    }
+
+    return results;
+  },
+});
+
+// Check if item is in favorites or watchlist
+export const getItemInteractionStatus = query({
+  args: {
+    itemType: v.union(v.literal("movie"), v.literal("tv")),
+    itemId: v.union(v.id("movies"), v.id("tvShows")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return { isFavorite: false, isWatchlisted: false };
+    }
+
+    const [favorite, watchlisted] = await Promise.all([
+      ctx.db
+        .query("favorites")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .filter((q) => q.and(
+          q.eq(q.field("itemType"), args.itemType),
+          q.eq(q.field("itemId"), args.itemId)
+        ))
+        .first(),
+      ctx.db
+        .query("watchlist")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .filter((q) => q.and(
+          q.eq(q.field("itemType"), args.itemType),
+          q.eq(q.field("itemId"), args.itemId)
+        ))
+        .first(),
+    ]);
+
+    return {
+      isFavorite: !!favorite,
+      isWatchlisted: !!watchlisted,
+    };
+  },
 });
 
 // Populate trending TV shows from TMDb
@@ -373,17 +496,17 @@ export const populateTrendingTVShows = action({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
     const limit = args.limit ?? 20;
-    
+
     // Fetch trending TV shows from TMDb
     const trendingShows: Array<any> = await ctx.runAction(api.externalApi.getTrendingTVShows, { limit });
-    
+
     // Store TV shows in database
     for (const show of trendingShows) {
       try {
         const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
           tmdbId: show.tmdbId
         });
-        
+
         if (!existingShow) {
           // Remove non-schema fields (e.g., source)
           const { source, ...showForInsert } = show as any;
@@ -393,7 +516,7 @@ export const populateTrendingTVShows = action({
         console.error("Error storing trending TV show:", error);
       }
     }
-    
+
     return { success: true, count: trendingShows.length };
   },
 });
@@ -403,17 +526,17 @@ export const populatePopularTVShows = action({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
     const limit = args.limit ?? 20;
-    
+
     // Fetch popular TV shows from TMDb
     const popularShows: Array<any> = await ctx.runAction(api.externalApi.getPopularTVShows, { limit });
-    
+
     // Store TV shows in database
     for (const show of popularShows) {
       try {
         const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
           tmdbId: show.tmdbId
         });
-        
+
         if (!existingShow) {
           // Remove non-schema fields (e.g., source)
           const { source, ...showForInsert } = show as any;
@@ -423,7 +546,7 @@ export const populatePopularTVShows = action({
         console.error("Error storing popular TV show:", error);
       }
     }
-    
+
     return { success: true, count: popularShows.length };
   },
 });
@@ -433,17 +556,17 @@ export const populateTopRatedTVShows = action({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args): Promise<{ success: boolean; count: number }> => {
     const limit = args.limit ?? 20;
-    
+
     // Fetch top-rated TV shows from TMDb
     const topRatedShows: Array<any> = await ctx.runAction(api.externalApi.getTopRatedTVShows, { limit });
-    
+
     // Store TV shows in database
     for (const show of topRatedShows) {
       try {
         const existingShow = await ctx.runQuery(api.movies.findShowByTmdbId, {
           tmdbId: show.tmdbId
         });
-        
+
         if (!existingShow) {
           // Remove non-schema fields (e.g., source)
           const { source, ...showForInsert } = show as any;
@@ -453,7 +576,7 @@ export const populateTopRatedTVShows = action({
         console.error("Error storing top-rated TV show:", error);
       }
     }
-    
+
     return { success: true, count: topRatedShows.length };
   },
 });
@@ -632,7 +755,7 @@ export const populateSampleData = action({
       const existing = await ctx.runQuery(api.movies.findByTmdbId, {
         tmdbId: movie.tmdbId
       });
-      
+
       if (!existing) {
         await ctx.runMutation(internal.movies.insertMovie, movie);
       }
@@ -666,6 +789,7 @@ export const insertMovie = internalMutation({
     popularity: v.number(),
     adult: v.boolean(),
     video: v.boolean(),
+    languages: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("movies", args);
@@ -691,9 +815,20 @@ export const insertShow = internalMutation({
     popularity: v.number(),
     adult: v.boolean(),
     inProduction: v.boolean(),
+    languages: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("tvShows", args);
+  },
+});
+
+export const updateMovieLanguages = mutation({
+  args: {
+    movieId: v.id("movies"),
+    languages: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.movieId, { languages: args.languages });
   },
 });
 
@@ -717,7 +852,7 @@ export const updateMoviePoster = action({
     }
 
     try {
-      const year = movie.releaseDate 
+      const year = movie.releaseDate
         ? parseInt(movie.releaseDate.split("-")[0])
         : undefined;
       const googleImageUrl: string | null = await ctx.runAction(api.externalApi.fetchGoogleImage, {

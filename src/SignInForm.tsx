@@ -1,5 +1,7 @@
 "use client";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvex } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +11,7 @@ interface SignInFormProps {
 
 export function SignInForm({ onSignInStart }: SignInFormProps) {
   const { signIn } = useAuthActions();
+  const convex = useConvex();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
 
@@ -16,17 +19,32 @@ export function SignInForm({ onSignInStart }: SignInFormProps) {
     <div className="w-full">
       <form
         className="flex flex-col gap-form-field"
+
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitting(true);
           onSignInStart?.();
+
           const formData = new FormData(e.target as HTMLFormElement);
-          formData.set("flow", flow);
-          void signIn("password", formData)
-            .then(() => {
-              // Sign in successful - loading will be handled by App.tsx
-            })
-            .catch((error) => {
+          const email = formData.get("email") as string;
+
+          const attemptAuth = async () => {
+            if (flow === "signUp") {
+              // Check if user already exists
+              const userExists = await convex.query(api.users.checkUserExists, { email });
+              if (userExists) {
+                toast.error("This account is already registered, try sign in");
+                setSubmitting(false);
+                return;
+              }
+            }
+
+            // Proceed with auth
+            formData.set("flow", flow);
+            try {
+              await signIn("password", formData);
+              // Sign in successful - loading handled by App.tsx
+            } catch (error: any) {
               let toastTitle = "";
               if (error.message.includes("Invalid password")) {
                 toastTitle = "Invalid password. Please try again.";
@@ -38,9 +56,24 @@ export function SignInForm({ onSignInStart }: SignInFormProps) {
               }
               toast.error(toastTitle);
               setSubmitting(false);
-            });
+            }
+          };
+
+          // Use setTimeout just to allow the UI to update with loading state first (from onSignInStart)
+          setTimeout(() => {
+            void attemptAuth();
+          }, 0);
         }}
       >
+        {flow === "signUp" && (
+          <input
+            className="auth-input-field"
+            type="text"
+            name="name"
+            placeholder="Full Name"
+            required
+          />
+        )}
         <input
           className="auth-input-field"
           type="email"
@@ -78,11 +111,13 @@ export function SignInForm({ onSignInStart }: SignInFormProps) {
         <span className="mx-4 text-secondary">or</span>
         <hr className="my-4 grow border-gray-200" />
       </div>
-      <button 
-        className="auth-button" 
+      <button
+        className="auth-button"
         onClick={() => {
           onSignInStart?.();
-          void signIn("anonymous");
+          setTimeout(() => {
+            void signIn("anonymous");
+          }, 0);
         }}
       >
         Sign in anonymously

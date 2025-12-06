@@ -7,7 +7,7 @@ import gsap from "gsap";
 
 interface SearchResultsProps {
   query: string;
-  setCurrentView: (view: "home" | "chat" | "movie" | "search") => void;
+  setCurrentView: (view: "home" | "chat" | "movie" | "search" | "favorites" | "watchlist") => void;
   setSelectedMovieId: (id: string) => void;
   setSelectedContentType: (type: "movie" | "tv") => void;
   onGoHome: () => void;
@@ -25,13 +25,13 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId, setSe
     if (containerRef.current && !isLoading && searchResults) {
       // Set container to visible immediately
       gsap.set(containerRef.current, { opacity: 1, visibility: "visible" });
-      
+
       // Set sections to visible immediately
       const sections = containerRef.current.querySelectorAll("section");
       sections.forEach((section) => {
         gsap.set(section, { opacity: 1, visibility: "visible" });
       });
-      
+
       // Ensure all movie cards are visible
       const movieCards = containerRef.current.querySelectorAll("[class*='group cursor-pointer']");
       movieCards.forEach((card) => {
@@ -122,11 +122,11 @@ export function SearchResults({ query, setCurrentView, setSelectedMovieId, setSe
 
       {/* Search Header */}
       <div>
-        <AnimatedHeading 
+        <AnimatedHeading
           text={`Search Results for "${query}"`}
           className="mb-2 text-3xl"
         />
-        <p 
+        <p
           className="text-gray-300"
         >
           Found {totalResults} result{totalResults !== 1 ? 's' : ''}
