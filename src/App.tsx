@@ -1,4 +1,4 @@
-import { Authenticated, Unauthenticated, useQuery, useConvexAuth } from "convex/react";
+import { Authenticated, Unauthenticated, useQuery, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
@@ -16,11 +16,15 @@ import { SearchBox } from "./components/SearchBox";
 import { useState, useEffect, useRef } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import gsap from "gsap";
+import { MovieNightLobby } from "./components/MovieNight/MovieNightLobby";
+import { MovieNightRoom } from "./components/MovieNight/MovieNightRoom";
+import { ThemeProvider } from "./context/ThemeContext";
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<"home" | "chat" | "movie" | "search" | "signin" | "favorites" | "watchlist">("home");
+  const [currentView, setCurrentView] = useState<"home" | "chat" | "movie" | "search" | "signin" | "favorites" | "watchlist" | "movienight">("home");
   const [selectedMovieId, setSelectedMovieId] = useState<string | null>(null);
   const [selectedContentType, setSelectedContentType] = useState<"movie" | "tv">("movie");
+  const [activeRoomId, setActiveRoomId] = useState<any>(null); // For Movie Night
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [hasNavigatedAway, setHasNavigatedAway] = useState<boolean>(false);
@@ -31,6 +35,7 @@ export default function App() {
   const { signOut } = useAuthActions();
   const userData = useQuery(api.auth.loggedInUser);
   const isAnonymous = userData && !userData.email;
+  const leaveRoom = useMutation(api.rooms.leaveRoom);
 
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
@@ -72,6 +77,13 @@ export default function App() {
       window.removeEventListener("pagehide", handlePageHide);
     };
   }, []);
+
+  // Ensure active room is cleared if user is not authenticated
+  useEffect(() => {
+    if (!isAuthenticated && activeRoomId) {
+      setActiveRoomId(null);
+    }
+  }, [isAuthenticated, activeRoomId]);
 
   // Clear auth on initial load if sessionStorage is empty (browser was closed)
   // This ensures users are signed out when browser closes and reopens
@@ -161,9 +173,12 @@ export default function App() {
   // Animate nav buttons when they appear (not needed in BaseLayout, but keeping for nav buttons)
   useEffect(() => {
     if (!showLandingPage && navButtonsRef.current.length > 0) {
-      gsap.from(navButtonsRef.current, {
+      gsap.fromTo(navButtonsRef.current, {
         opacity: 0,
         x: -20,
+      }, {
+        opacity: 1,
+        x: 0,
         duration: 0.6,
         ease: "expo.out",
         stagger: 0.1,
@@ -173,249 +188,330 @@ export default function App() {
   }, [showLandingPage]);
 
   return (
-    <BaseLayout
-      showHeader={shouldShowHeader}
-      currentPage={currentView}
-      onLogoClick={() => {
-        setShowLanding(false);
-        setHasNavigatedAway(true);
-        setCurrentView("home");
-        setSelectedMovieId(null);
-        setSelectedContentType("movie");
-        setSearchQuery("");
-      }}
-      headerContent={
-        shouldShowHeader && (
-          <Authenticated>
-            <div className="flex-1 flex justify-between items-center">
-              <div className="hidden md:flex space-x-6">
-                <button
-                  ref={(el) => {
-                    if (el) navButtonsRef.current[0] = el;
-                  }}
-                  onClick={() => {
-                    setShowLanding(false);
-                    setHasNavigatedAway(true);
-                    setCurrentView("home");
-                    setSelectedMovieId(null);
-                    setSelectedContentType("movie");
-                    setSearchQuery("");
-                  }}
-                  className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "home"
-                    ? "text-purple-500"
-                    : "text-gray-300 hover:text-purple-400"
-                    }`}
-                  onMouseEnter={(e) => {
-                    if (currentView !== "home") {
+    <ThemeProvider>
+      <BaseLayout
+        showHeader={shouldShowHeader}
+        currentPage={currentView}
+        onLogoClick={() => {
+          setShowLanding(false);
+          setHasNavigatedAway(true);
+          setCurrentView("home");
+          setSelectedMovieId(null);
+          setSelectedContentType("movie");
+          setSearchQuery("");
+        }}
+        headerContent={
+          shouldShowHeader && (
+            <Authenticated>
+              <div className="flex-1 flex justify-between items-center">
+                <div className="hidden md:flex space-x-6">
+                  <button
+                    ref={(el) => {
+                      if (el) navButtonsRef.current[0] = el;
+                    }}
+                    onClick={() => {
+                      setShowLanding(false);
+                      setHasNavigatedAway(true);
+                      setCurrentView("home");
+                      setSelectedMovieId(null);
+                      setSelectedContentType("movie");
+                      setSearchQuery("");
+                    }}
+                    className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "home"
+                      ? "text-purple-500"
+                      : "text-gray-300 hover:text-purple-400"
+                      }`}
+                    onMouseEnter={(e) => {
+                      if (currentView !== "home") {
+                        gsap.to(e.currentTarget, {
+                          scale: 1.1,
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }
+                    }}
+                    onMouseLeave={(e) => {
                       gsap.to(e.currentTarget, {
-                        scale: 1.1,
+                        scale: 1,
                         duration: 0.3,
                         ease: "power2.out",
                       });
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  Home
-                </button>
-                <button
-                  ref={(el) => {
-                    if (el) navButtonsRef.current[1] = el;
-                  }}
-                  onClick={() => {
-                    setCurrentView("chat");
-                    setShowLanding(false);
-                    setHasNavigatedAway(true);
-                  }}
-                  className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "chat"
-                    ? "text-purple-500"
-                    : "text-gray-300 hover:text-purple-400"
-                    }`}
-                  onMouseEnter={(e) => {
-                    if (currentView !== "chat") {
+                    }}
+                  >
+                    Home
+                  </button>
+                  <button
+                    ref={(el) => {
+                      if (el) navButtonsRef.current[1] = el;
+                    }}
+                    onClick={() => {
+                      setCurrentView("chat");
+                      setShowLanding(false);
+                      setHasNavigatedAway(true);
+                    }}
+                    className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "chat"
+                      ? "text-purple-500"
+                      : "text-gray-300 hover:text-purple-400"
+                      }`}
+                    onMouseEnter={(e) => {
+                      if (currentView !== "chat") {
+                        gsap.to(e.currentTarget, {
+                          scale: 1.1,
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }
+                    }}
+                    onMouseLeave={(e) => {
                       gsap.to(e.currentTarget, {
-                        scale: 1.1,
+                        scale: 1,
                         duration: 0.3,
                         ease: "power2.out",
                       });
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  AI Chat
-                </button>
-                <button
-                  ref={(el) => {
-                    if (el) navButtonsRef.current[2] = el;
-                  }}
-                  onClick={() => {
-                    setCurrentView("favorites");
-                    setShowLanding(false);
-                    setHasNavigatedAway(true);
-                  }}
-                  className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "favorites"
-                    ? "text-purple-500"
-                    : "text-gray-300 hover:text-purple-400"
-                    }`}
-                  onMouseEnter={(e) => {
-                    if (currentView !== "favorites") {
+                    }}
+                  >
+                    AI Chat
+                  </button>
+                  <button
+                    ref={(el) => {
+                      if (el) navButtonsRef.current[2] = el;
+                    }}
+                    onClick={() => {
+                      setCurrentView("favorites");
+                      setShowLanding(false);
+                      setHasNavigatedAway(true);
+                    }}
+                    className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "favorites"
+                      ? "text-purple-500"
+                      : "text-gray-300 hover:text-purple-400"
+                      }`}
+                    onMouseEnter={(e) => {
+                      if (currentView !== "favorites") {
+                        gsap.to(e.currentTarget, {
+                          scale: 1.1,
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }
+                    }}
+                    onMouseLeave={(e) => {
                       gsap.to(e.currentTarget, {
-                        scale: 1.1,
+                        scale: 1,
                         duration: 0.3,
                         ease: "power2.out",
                       });
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  Favorites
-                </button>
-                <button
-                  ref={(el) => {
-                    if (el) navButtonsRef.current[3] = el;
-                  }}
-                  onClick={() => {
-                    setCurrentView("watchlist");
-                    setShowLanding(false);
-                    setHasNavigatedAway(true);
-                  }}
-                  className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "watchlist"
-                    ? "text-purple-500"
-                    : "text-gray-300 hover:text-purple-400"
-                    }`}
-                  onMouseEnter={(e) => {
-                    if (currentView !== "watchlist") {
+                    }}
+                  >
+                    Favorites
+                  </button>
+                  <button
+                    ref={(el) => {
+                      if (el) navButtonsRef.current[3] = el;
+                    }}
+                    onClick={() => {
+                      setCurrentView("watchlist");
+                      setShowLanding(false);
+                      setHasNavigatedAway(true);
+                    }}
+                    className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "watchlist"
+                      ? "text-purple-500"
+                      : "text-gray-300 hover:text-purple-400"
+                      }`}
+                    onMouseEnter={(e) => {
+                      if (currentView !== "watchlist") {
+                        gsap.to(e.currentTarget, {
+                          scale: 1.1,
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }
+                    }}
+                    onMouseLeave={(e) => {
                       gsap.to(e.currentTarget, {
-                        scale: 1.1,
+                        scale: 1,
                         duration: 0.3,
                         ease: "power2.out",
                       });
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  Watchlist
-                </button>
-              </div>
+                    }}
+                  >
+                    Watchlist
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentView("movienight");
+                      setShowLanding(false);
+                      setHasNavigatedAway(true);
+                    }}
+                    className={`text-sm font-medium transition-all duration-300 transform hover:scale-110 ${currentView === "movienight"
+                      ? "text-purple-500"
+                      : "text-gray-300 hover:text-purple-400"
+                      }`}
+                  >
+                    Movie Night
+                  </button>
+                </div>
 
-              <div className="flex items-center space-x-4">
-                <div className="hidden md:flex items-center space-x-4">
-                  <SearchBox
-                    initialQuery={searchQuery}
-                    onSearch={(query) => {
-                      setSearchQuery(query);
-                      setCurrentView("search");
-                      setShowLanding(false);
-                      setHasNavigatedAway(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    onResultSelect={(type, id) => {
-                      setSelectedContentType(type);
-                      setSelectedMovieId(id);
-                      setCurrentView("movie");
-                      setShowLanding(false);
-                      setHasNavigatedAway(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    onFocus={(focused) => {
-                      gsap.to(navButtonsRef.current[3]?.parentElement?.parentElement || [], {
-                        scale: focused ? 1.02 : 1,
-                        duration: 0.3,
-                        ease: "power2.out",
-                      });
+                <div className="flex items-center space-x-4">
+                  <div className="hidden md:flex items-center space-x-4">
+                    <SearchBox
+                      initialQuery={searchQuery}
+                      onSearch={(query) => {
+                        setSearchQuery(query);
+                        setCurrentView("search");
+                        setShowLanding(false);
+                        setHasNavigatedAway(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      onResultSelect={(type, id) => {
+                        setSelectedContentType(type);
+                        setSelectedMovieId(id);
+                        setCurrentView("movie");
+                        setShowLanding(false);
+                        setHasNavigatedAway(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      onFocus={(focused) => {
+                        gsap.to(navButtonsRef.current[3]?.parentElement?.parentElement || [], {
+                          scale: focused ? 1.02 : 1,
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }}
+                    />
+                  </div>
+                  <SignOutButton
+                    onSignOut={() => {
+                      // Reset app state to show landing page after logout
+                      setCurrentView("home");
+                      setShowLanding(true);
+                      setHasNavigatedAway(false);
+                      setShowSignIn(false);
+                      setSelectedMovieId(null);
+                      setSelectedContentType("movie");
+                      setSearchQuery("");
                     }}
                   />
                 </div>
-                <SignOutButton
-                  onSignOut={() => {
-                    // Reset app state to show landing page after logout
-                    setCurrentView("home");
-                    setShowLanding(true);
-                    setHasNavigatedAway(false);
-                    setShowSignIn(false);
+              </div>
+            </Authenticated>
+          )
+        }
+      >
+
+        {/* Page Content with Transitions */}
+        {/* Use a composite key that includes auth state to ensure proper transitions */}
+        {/* Loading overlay during sign-in */}
+        {(isSigningIn || isSigningOut || (authLoading && showSignIn)) && (
+          <div className="fixed inset-0 bg-[#0d0d0d]/95 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" style={{ animationDirection: "reverse", animationDuration: "0.8s" }}></div>
+                </div>
+              </div>
+              <p className="text-white text-lg font-medium">
+                {isSigningOut ? "Signing you out..." : "Signing you in..."}
+              </p>
+              <p className="text-gray-400 text-sm">Please wait a moment</p>
+            </div>
+          </div>
+        )}
+
+        <PageTransition pageKey={`${currentView}-${showLandingPage}`}>
+          <div className={showLandingPage ? "" : "container mx-auto px-4 py-8"}>
+            <Authenticated>
+              {/* Authenticated users always see Content, never LandingPage */}
+              <ErrorBoundary>
+                <Content
+                  currentView={currentView}
+                  selectedMovieId={selectedMovieId}
+                  selectedContentType={selectedContentType}
+                  searchQuery={searchQuery}
+                  setCurrentView={setCurrentView}
+                  setSelectedMovieId={setSelectedMovieId}
+                  setSelectedContentType={setSelectedContentType}
+                  onGoHome={() => {
+                    // Force HomePage to show (not LandingPage) by setting forceHomePage flag
+                    setForceHomePage(true);
+                    setShowLanding(false);
+                    setHasNavigatedAway(true);
                     setSelectedMovieId(null);
                     setSelectedContentType("movie");
                     setSearchQuery("");
+                    setCurrentView("home");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  onSignIn={async () => {
+                    // Clear local state immediately
+                    const roomIdToLeave = activeRoomId;
+                    setActiveRoomId(null);
+
+                    if (roomIdToLeave) {
+                      // Attempt to leave room on backend, but don't block UI logic
+                      leaveRoom({ roomId: roomIdToLeave }).catch(console.error);
+                    }
+                    setIsSigningOut(true);
+                    // Ensure animation is visible for at least 1 second
+                    await Promise.all([
+                      signOut(),
+                      new Promise(resolve => setTimeout(resolve, 1000))
+                    ]);
+                    setIsSigningOut(false);
+                    setShowSignIn(false);
+                    setShowLanding(true);
+                    setCurrentView("home");
+                    setHasNavigatedAway(false);
+                    setForceHomePage(false);
                   }}
                 />
-              </div>
-            </div>
-          </Authenticated>
-        )
-      }
-    >
+              </ErrorBoundary>
+            </Authenticated>
 
-      {/* Page Content with Transitions */}
-      {/* Use a composite key that includes auth state to ensure proper transitions */}
-      {/* Loading overlay during sign-in */}
-      {(isSigningIn || isSigningOut || (authLoading && showSignIn)) && (
-        <div className="fixed inset-0 bg-[#0d0d0d]/95 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" style={{ animationDirection: "reverse", animationDuration: "0.8s" }}></div>
-              </div>
-            </div>
-            <p className="text-white text-lg font-medium">
-              {isSigningOut ? "Signing you out..." : "Signing you in..."}
-            </p>
-            <p className="text-gray-400 text-sm">Please wait a moment</p>
+            <Unauthenticated>
+              {/* Unauthenticated users: Show landing page by default, or Sign In form if they clicked Sign In */}
+              {showSignIn ? (
+                <div className="flex items-center justify-center min-h-[60vh]">
+                  <div className="w-full max-w-md">
+                    <div className="text-center mb-8">
+                      <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+                        Welcome to CineAI
+                      </h1>
+                      <p className="text-gray-300 text-lg">
+                        Discover movies and shows with AI-powered conversations
+                      </p>
+                    </div>
+                    <SignInForm
+                      onSignInStart={() => setIsSigningIn(true)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <LandingPage
+                  onSignIn={() => {
+                    setShowSignIn(true);
+                    setShowLanding(false);
+                    setCurrentView("signin");
+                  }}
+                />
+              )}
+            </Unauthenticated>
           </div>
-        </div>
-      )}
+        </PageTransition>
 
-      <PageTransition pageKey={`${currentView}-${showLandingPage}`}>
-        <div className={showLandingPage ? "" : "container mx-auto px-4 py-8"}>
-          <Authenticated>
-            {/* Authenticated users always see Content, never LandingPage */}
-            <ErrorBoundary>
-              <Content
-                currentView={currentView}
-                selectedMovieId={selectedMovieId}
-                selectedContentType={selectedContentType}
-                searchQuery={searchQuery}
-                setCurrentView={setCurrentView}
-                setSelectedMovieId={setSelectedMovieId}
-                setSelectedContentType={setSelectedContentType}
-                onGoHome={() => {
-                  // Force HomePage to show (not LandingPage) by setting forceHomePage flag
-                  setForceHomePage(true);
-                  setShowLanding(false);
-                  setHasNavigatedAway(true);
-                  setSelectedMovieId(null);
-                  setSelectedContentType("movie");
-                  setSearchQuery("");
-                  setCurrentView("home");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+        <Toaster position="top-center" richColors toastOptions={{ style: { marginTop: "50px" } }} />
+
+        {currentView === "movienight" && (
+          <div className="container mx-auto px-4 py-8">
+            {!activeRoomId ? (
+              <MovieNightLobby
+                onJoinRoom={(roomId) => setActiveRoomId(roomId)}
                 onSignIn={async () => {
+                  if (activeRoomId) {
+                    await leaveRoom({ roomId: activeRoomId }).catch(console.error);
+                    setActiveRoomId(null);
+                  }
                   setIsSigningOut(true);
-                  // Ensure animation is visible for at least 1 second
                   await Promise.all([
                     signOut(),
                     new Promise(resolve => setTimeout(resolve, 1000))
@@ -426,44 +522,24 @@ export default function App() {
                   setCurrentView("home");
                   setHasNavigatedAway(false);
                   setForceHomePage(false);
+                  // Then show sign in
+                  setTimeout(() => {
+                    setShowSignIn(true);
+                    setShowLanding(false);
+                    setCurrentView("signin");
+                  }, 100);
                 }}
               />
-            </ErrorBoundary>
-          </Authenticated>
-
-          <Unauthenticated>
-            {/* Unauthenticated users: Show landing page by default, or Sign In form if they clicked Sign In */}
-            {showSignIn ? (
-              <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="w-full max-w-md">
-                  <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-                      Welcome to CineAI
-                    </h1>
-                    <p className="text-gray-300 text-lg">
-                      Discover movies and shows with AI-powered conversations
-                    </p>
-                  </div>
-                  <SignInForm
-                    onSignInStart={() => setIsSigningIn(true)}
-                  />
-                </div>
-              </div>
             ) : (
-              <LandingPage
-                onSignIn={() => {
-                  setShowSignIn(true);
-                  setShowLanding(false);
-                  setCurrentView("signin");
-                }}
+              <MovieNightRoom
+                roomId={activeRoomId}
+                onLeave={() => setActiveRoomId(null)}
               />
             )}
-          </Unauthenticated>
-        </div>
-      </PageTransition>
-
-      <Toaster position="top-center" richColors toastOptions={{ style: { marginTop: "50px" } }} />
-    </BaseLayout>
+          </div>
+        )}
+      </BaseLayout>
+    </ThemeProvider>
   );
 }
 
@@ -482,7 +558,7 @@ function Content({
   selectedMovieId: string | null;
   selectedContentType: "movie" | "tv";
   searchQuery: string;
-  setCurrentView: (view: "home" | "chat" | "movie" | "search" | "favorites" | "watchlist") => void;
+  setCurrentView: (view: "home" | "chat" | "movie" | "search" | "favorites" | "watchlist" | "movienight") => void;
   setSelectedMovieId: (id: string | null) => void;
   setSelectedContentType: (type: "movie" | "tv") => void;
   onGoHome: () => void;
@@ -523,6 +599,8 @@ function Content({
       return <UserList type="favorites" setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />;
     case "watchlist":
       return <UserList type="watchlist" setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />;
+    case "movienight":
+      return null;
     default:
       // Fallback to HomePage
       return <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />;

@@ -8,9 +8,11 @@ interface SignInModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSignIn: () => void;
+    title?: string;
+    description?: string;
 }
 
-export function SignInModal({ isOpen, onClose, onSignIn }: SignInModalProps) {
+export function SignInModal({ isOpen, onClose, onSignIn, title, description }: SignInModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -60,11 +62,11 @@ export function SignInModal({ isOpen, onClose, onSignIn }: SignInModalProps) {
                     </div>
 
                     <h3 className="text-2xl font-bold text-white mb-2">
-                        Sign in to save movies
+                        {title || "Sign in to save movies"}
                     </h3>
 
                     <p className="text-gray-400 mb-8">
-                        Create an account or sign in to build your personal watchlist and favorites completely for free.
+                        {description || "Create an account or sign in to build your personal watchlist and favorites completely for free."}
                     </p>
 
                     <div className="space-y-3">

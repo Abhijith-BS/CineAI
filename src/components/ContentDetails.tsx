@@ -6,6 +6,7 @@ import gsap from "gsap";
 import { toast } from "sonner";
 import { SignInModal } from "./SignInModal";
 import { ReviewsSection } from "./ReviewsSection";
+import { useTheme } from "../context/ThemeContext";
 
 interface ContentDetailsProps {
   contentId: any;
@@ -38,11 +39,33 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
   const [credits, setCredits] = useState<any>(null);
   const [languages, setLanguages] = useState<string[]>([]);
   const [loadingOTT, setLoadingOTT] = useState(true);
-  const [showSignInModal, setShowSignInModal] = useState(false);
+  const showSignInModalState = useState(false);
+  const [showSignInModal, setShowSignInModal] = showSignInModalState;
   const containerRef = useRef<HTMLDivElement>(null);
+  const { setThemeFromImage, resetTheme } = useTheme();
 
   const content = contentType === "movie" ? movie : show;
   const tmdbId = content?.tmdbId;
+
+  const backdropUrl = content && (content as any).backdropPath
+    ? ((content as any).backdropPath.startsWith("http://") || (content as any).backdropPath.startsWith("https://"))
+      ? (content as any).backdropPath
+      : `https://image.tmdb.org/t/p/w1280${(content as any).backdropPath}`
+    : null;
+
+  const posterUrl = content && (content as any).posterPath
+    ? ((content as any).posterPath.startsWith("http://") || (content as any).posterPath.startsWith("https://"))
+      ? (content as any).posterPath
+      : `https://image.tmdb.org/t/p/w500${(content as any).posterPath}`
+    : null;
+
+  // Update theme based on poster
+  useEffect(() => {
+    if (posterUrl) {
+      setThemeFromImage(posterUrl);
+    }
+    return () => resetTheme();
+  }, [posterUrl]);
 
   // Fetch OTT platforms
   useEffect(() => {
@@ -148,17 +171,7 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
   const budget = contentType === "movie" ? (content as any).budget : undefined;
   const revenue = contentType === "movie" ? (content as any).revenue : undefined;
 
-  const backdropUrl = (content as any).backdropPath
-    ? ((content as any).backdropPath.startsWith("http://") || (content as any).backdropPath.startsWith("https://"))
-      ? (content as any).backdropPath
-      : `https://image.tmdb.org/t/p/w1280${(content as any).backdropPath}`
-    : null;
 
-  const posterUrl = (content as any).posterPath
-    ? ((content as any).posterPath.startsWith("http://") || (content as any).posterPath.startsWith("https://"))
-      ? (content as any).posterPath
-      : `https://image.tmdb.org/t/p/w500${(content as any).posterPath}`
-    : null;
 
 
 

@@ -28,6 +28,7 @@ import type * as http from "../http.js";
 import type * as inspect from "../inspect.js";
 import type * as movies from "../movies.js";
 import type * as reviews from "../reviews.js";
+import type * as rooms from "../rooms.js";
 import type * as router from "../router.js";
 import type * as search from "../search.js";
 import type * as users from "../users.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   inspect: typeof inspect;
   movies: typeof movies;
   reviews: typeof reviews;
+  rooms: typeof rooms;
   router: typeof router;
   search: typeof search;
   users: typeof users;

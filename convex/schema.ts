@@ -105,6 +105,39 @@ const applicationTables = {
     .index("by_user", ["userId"])
     .index("by_content", ["contentType", "contentId"])
     .index("by_content_and_time", ["contentType", "contentId", "timestamp"]),
+
+  rooms: defineTable({
+    code: v.string(), // e.g., "ABCD"
+    hostId: v.id("users"),
+    status: v.union(v.literal("voting"), v.literal("matched"), v.literal("ended")),
+    genre: v.optional(v.string()), // Filter by genre
+    provider: v.optional(v.string()), // Filter by provider
+    createdAt: v.number(),
+  }).index("by_code", ["code"]),
+
+  roomUsers: defineTable({
+    roomId: v.id("rooms"),
+    userId: v.id("users"),
+    userName: v.string(),
+    joinedAt: v.number(),
+  }).index("by_room", ["roomId"]).index("by_user_room", ["userId", "roomId"]),
+
+  roomVotes: defineTable({
+    roomId: v.id("rooms"),
+    userId: v.id("users"),
+    movieId: v.number(), // TMDB ID
+    movieTitle: v.string(),
+    moviePoster: v.string(),
+    vote: v.union(v.literal("like"), v.literal("dislike")),
+  }).index("by_room_movie", ["roomId", "movieId"]).index("by_room_user", ["roomId", "userId"]),
+
+  matches: defineTable({
+    roomId: v.id("rooms"),
+    movieId: v.number(),
+    movieTitle: v.string(),
+    moviePoster: v.string(),
+    matchedAt: v.number(),
+  }).index("by_room", ["roomId"]),
 };
 
 export default defineSchema({

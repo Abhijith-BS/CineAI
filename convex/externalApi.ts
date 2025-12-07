@@ -1447,3 +1447,42 @@ export const getContentLanguages = action({
     }
   },
 });
+
+// Fetch popular movies for Movie Night
+export const getPopularMovies = action({
+  args: {
+    page: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!process.env.TMDB_API_KEY) {
+        return generateSampleResults({});
+      }
+
+      const baseUrl = "https://api.themoviedb.org/3";
+      const apiKey = process.env.TMDB_API_KEY;
+      const page = args.page || 1;
+
+      const response = await axios.get(`${baseUrl}/movie/popular`, {
+        params: {
+          api_key: apiKey,
+          page: page
+        }
+      });
+
+      const data = response.data;
+
+      return (data.results || []).map((m: any) => ({
+        tmdbId: m.id,
+        title: m.title,
+        overview: m.overview,
+        posterPath: m.poster_path,
+        voteAverage: m.vote_average,
+      }));
+
+    } catch (error) {
+      console.error("Error fetching popular movies:", error);
+      return generateSampleResults({});
+    }
+  },
+});
