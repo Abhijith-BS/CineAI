@@ -588,6 +588,7 @@ function Content({
           setCurrentView={setCurrentView}
           onGoHome={onGoHome}
           onSignIn={onSignIn}
+          onBackToSearch={searchQuery ? () => setCurrentView("search") : undefined}
         />
       ) : (
         <HomePage setCurrentView={setCurrentView} setSelectedMovieId={setSelectedMovieId} setSelectedContentType={setSelectedContentType} />

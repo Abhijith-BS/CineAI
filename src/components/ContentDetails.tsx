@@ -14,9 +14,13 @@ interface ContentDetailsProps {
   setCurrentView: (view: any) => void;
   onGoHome: () => void;
   onSignIn: () => void;
+  extraActions?: React.ReactNode;
+  hideDefaultActions?: boolean;
+  onDataLoaded?: (data: any) => void;
+  onBackToSearch?: () => void;
 }
 
-export function ContentDetails({ contentId, contentType, setCurrentView, onGoHome, onSignIn }: ContentDetailsProps) {
+export function ContentDetails({ contentId, contentType, setCurrentView, onGoHome, onSignIn, extraActions, hideDefaultActions, onDataLoaded, onBackToSearch }: ContentDetailsProps) {
   const movie = contentType === "movie" ? useQuery(api.movies.getMovieById, { id: contentId as any }) : null;
   const show = contentType === "tv" ? useQuery(api.movies.getShowById, { id: contentId as any }) : null;
   const loggedInUser = useQuery(api.auth.loggedInUser);
@@ -64,8 +68,11 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
     if (posterUrl) {
       setThemeFromImage(posterUrl);
     }
+    if (content && onDataLoaded) {
+      onDataLoaded(content);
+    }
     return () => resetTheme();
-  }, [posterUrl]);
+  }, [posterUrl, content]);
 
   // Fetch OTT platforms
   useEffect(() => {
@@ -176,6 +183,7 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
 
 
 
+
   const handleAddToFavorites = async () => {
     if (!loggedInUser || !loggedInUser.email) {
       setShowSignInModal(true);
@@ -230,34 +238,66 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
           onSignIn();
         }}
       />
-      {/* Back Button */}
-      <button
-        onClick={onGoHome}
-        className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
-        onMouseEnter={(e) => {
-          gsap.to(e.currentTarget, {
-            x: -5,
-            scale: 1.05,
-            color: "#a855f7",
-            duration: 0.3,
-            ease: "power2.out",
-          });
-        }}
-        onMouseLeave={(e) => {
-          gsap.to(e.currentTarget, {
-            x: 0,
-            scale: 1,
-            color: "#d1d5db",
-            duration: 0.3,
-            ease: "power2.out",
-          });
-        }}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        <span>Back to Home</span>
-      </button>
+      {/* Back Buttons */}
+      <div className="flex gap-4 items-center">
+        <button
+          onClick={onGoHome}
+          className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+          onMouseEnter={(e) => {
+            gsap.to(e.currentTarget, {
+              x: -5,
+              scale: 1.05,
+              color: "#a855f7",
+              duration: 0.3,
+              ease: "power2.out",
+            });
+          }}
+          onMouseLeave={(e) => {
+            gsap.to(e.currentTarget, {
+              x: 0,
+              scale: 1,
+              color: "#d1d5db",
+              duration: 0.3,
+              ease: "power2.out",
+            });
+          }}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span>Back to Home</span>
+        </button>
+
+        {onBackToSearch && (
+          <button
+            onClick={onBackToSearch}
+            className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors border-l border-gray-600 pl-4"
+            onMouseEnter={(e) => {
+              gsap.to(e.currentTarget, {
+                x: 5,
+                scale: 1.05,
+                color: "#e879f9",
+                duration: 0.3,
+                ease: "power2.out",
+              });
+            }}
+            onMouseLeave={(e) => {
+              gsap.to(e.currentTarget, {
+                x: 0,
+                scale: 1,
+                color: "#d1d5db",
+                duration: 0.3,
+                ease: "power2.out",
+              });
+            }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span>Back to Search</span>
+          </button>
+        )}
+      </div>
 
       {/* Hero Section */}
       < div className="relative overflow-hidden rounded-2xl" >
@@ -346,62 +386,67 @@ export function ContentDetails({ contentId, contentType, setCurrentView, onGoHom
               </p>
 
               <div className="flex space-x-4">
-                <button
-                  onClick={handleAddToFavorites}
-                  className={`px-6 py-3 font-semibold rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl ${interactionStatus?.isFavorite
-                    ? "bg-red-600 hover:bg-red-700 text-white hover:shadow-red-500/50"
-                    : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:shadow-purple-500/50"
-                    }`}
-                  onMouseEnter={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1.1,
-                      boxShadow: interactionStatus?.isFavorite
-                        ? "0 20px 40px rgba(220, 38, 38, 0.5)"
-                        : "0 20px 40px rgba(168, 85, 247, 0.5)",
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      boxShadow: "none",
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  {interactionStatus?.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                </button>
-                <button
-                  onClick={handleAddToWatchlist}
-                  className={`px-6 py-3 font-semibold rounded-full transition-all duration-300 transform hover:scale-105 ${interactionStatus?.isWatchlisted
-                    ? "bg-red-900/50 hover:bg-red-900/70 text-red-200 border border-red-800"
-                    : "bg-white/20 hover:bg-white/30 text-white"
-                    }`}
-                  onMouseEnter={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1.05,
-                      backgroundColor: interactionStatus?.isWatchlisted
-                        ? "rgba(127, 29, 29, 0.7)"
-                        : "rgba(255, 255, 255, 0.3)",
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                  onMouseLeave={(e) => {
-                    gsap.to(e.currentTarget, {
-                      scale: 1,
-                      backgroundColor: interactionStatus?.isWatchlisted
-                        ? "rgba(127, 29, 29, 0.5)"
-                        : "rgba(255, 255, 255, 0.2)",
-                      duration: 0.3,
-                      ease: "power2.out",
-                    });
-                  }}
-                >
-                  {interactionStatus?.isWatchlisted ? "Remove from Watchlist" : "Add to Watchlist"}
-                </button>
+                {!hideDefaultActions && (
+                  <>
+                    <button
+                      onClick={handleAddToFavorites}
+                      className={`px-6 py-3 font-semibold rounded-full transition-all duration-300 transform hover:scale-110 hover:shadow-2xl ${interactionStatus?.isFavorite
+                        ? "bg-red-600 hover:bg-red-700 text-white hover:shadow-red-500/50"
+                        : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:shadow-purple-500/50"
+                        }`}
+                      onMouseEnter={(e) => {
+                        gsap.to(e.currentTarget, {
+                          scale: 1.1,
+                          boxShadow: interactionStatus?.isFavorite
+                            ? "0 20px 40px rgba(220, 38, 38, 0.5)"
+                            : "0 20px 40px rgba(168, 85, 247, 0.5)",
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }}
+                      onMouseLeave={(e) => {
+                        gsap.to(e.currentTarget, {
+                          scale: 1,
+                          boxShadow: "none",
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }}
+                    >
+                      {interactionStatus?.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                    </button>
+                    <button
+                      onClick={handleAddToWatchlist}
+                      className={`px-6 py-3 font-semibold rounded-full transition-all duration-300 transform hover:scale-105 ${interactionStatus?.isWatchlisted
+                        ? "bg-red-900/50 hover:bg-red-900/70 text-red-200 border border-red-800"
+                        : "bg-white/20 hover:bg-white/30 text-white"
+                        }`}
+                      onMouseEnter={(e) => {
+                        gsap.to(e.currentTarget, {
+                          scale: 1.05,
+                          backgroundColor: interactionStatus?.isWatchlisted
+                            ? "rgba(127, 29, 29, 0.7)"
+                            : "rgba(255, 255, 255, 0.3)",
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }}
+                      onMouseLeave={(e) => {
+                        gsap.to(e.currentTarget, {
+                          scale: 1,
+                          backgroundColor: interactionStatus?.isWatchlisted
+                            ? "rgba(127, 29, 29, 0.5)"
+                            : "rgba(255, 255, 255, 0.2)",
+                          duration: 0.3,
+                          ease: "power2.out",
+                        });
+                      }}
+                    >
+                      {interactionStatus?.isWatchlisted ? "Remove from Watchlist" : "Add to Watchlist"}
+                    </button>
+                  </>
+                )}
+                {extraActions}
               </div>
             </div>
           </div>

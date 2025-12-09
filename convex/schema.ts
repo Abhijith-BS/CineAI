@@ -120,12 +120,14 @@ const applicationTables = {
     userId: v.id("users"),
     userName: v.string(),
     joinedAt: v.number(),
+    votingFinished: v.optional(v.boolean()),
   }).index("by_room", ["roomId"]).index("by_user_room", ["userId", "roomId"]),
 
   roomVotes: defineTable({
     roomId: v.id("rooms"),
     userId: v.id("users"),
-    movieId: v.number(), // TMDB ID
+    movieId: v.number(), // TMDB ID (Content ID)
+    type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
     movieTitle: v.string(),
     moviePoster: v.string(),
     vote: v.union(v.literal("like"), v.literal("dislike")),
@@ -134,10 +136,22 @@ const applicationTables = {
   matches: defineTable({
     roomId: v.id("rooms"),
     movieId: v.number(),
+    type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
     movieTitle: v.string(),
     moviePoster: v.string(),
     matchedAt: v.number(),
   }).index("by_room", ["roomId"]),
+
+  roomSelections: defineTable({
+    roomId: v.id("rooms"),
+    movieId: v.number(),
+    type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
+    movieTitle: v.string(),
+    moviePoster: v.string(),
+    addedBy: v.id("users"),
+    addedAt: v.number(),
+    agreedUsers: v.array(v.id("users")),
+  }).index("by_room", ["roomId"]).index("by_room_movie", ["roomId", "movieId"]),
 };
 
 export default defineSchema({

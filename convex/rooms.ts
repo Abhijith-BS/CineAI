@@ -4,6 +4,7 @@ import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Helper to generate a random 4-letter room code
+// Trigger update - retry deployment
 function generateRoomCode() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let code = "";
@@ -171,18 +172,201 @@ export const getRoomState = query({
             .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
             .collect();
 
+        const selections = await ctx.db
+            .query("roomSelections")
+            .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+            .collect();
+
         return {
             room,
             users,
             matches,
+            selections,
         };
     },
+});
+
+export const addContentToRoom = mutation({
+    args: {
+        roomId: v.id("rooms"),
+        contentId: v.string(), // Convex ID
+        type: v.union(v.literal("movie"), v.literal("tv")),
+    },
+    handler: async (ctx, args) => {
+        const dbUser = await getOrCreateUser(ctx, true);
+
+        let tmdbId: number;
+        let title: string;
+        let poster: string;
+
+        if (args.type === "movie") {
+            const movie = await ctx.db.get(args.contentId as Id<"movies">);
+            if (!movie) throw new Error("Movie not found");
+            tmdbId = movie.tmdbId;
+            title = movie.title;
+            poster = movie.posterPath || "";
+        } else {
+            const show = await ctx.db.get(args.contentId as Id<"tvShows">);
+            if (!show) throw new Error("TV Show not found");
+            tmdbId = show.tmdbId;
+            title = show.name;
+            poster = show.posterPath || "";
+        }
+
+        // Check if content already added
+        // We iterate or check both options if type not indexed efficiently, 
+        // but adding 'type' to valid selections prevents duplicated IDs if collision exists.
+        const existing = await ctx.db
+            .query("roomSelections")
+            .withIndex("by_room_movie", (q) => q.eq("roomId", args.roomId).eq("movieId", tmdbId))
+            .filter(q => q.eq(q.field("type"), args.type))
+            .first();
+
+        if (existing) {
+            return;
+        }
+
+        await ctx.db.insert("roomSelections", {
+            roomId: args.roomId,
+            movieId: tmdbId,
+            type: args.type,
+            movieTitle: title,
+            moviePoster: poster,
+            addedBy: dbUser._id,
+            addedAt: Date.now(),
+            agreedUsers: [dbUser._id],
+        });
+    },
+});
+
+export const toggleSelectionVote = mutation({
+    args: {
+        roomId: v.id("rooms"),
+        movieId: v.number(),
+        type: v.optional(v.union(v.literal("movie"), v.literal("tv"))),
+    },
+    handler: async (ctx, args) => {
+        const dbUser = await getOrCreateUser(ctx, true);
+
+        let query = ctx.db
+            .query("roomSelections")
+            .withIndex("by_room_movie", (q) => q.eq("roomId", args.roomId).eq("movieId", args.movieId));
+
+        if (args.type) {
+            query = query.filter(q => q.eq(q.field("type"), args.type));
+        }
+
+        const selection = await query.first();
+
+        if (!selection) throw new Error("Selection not found");
+
+        const userId = dbUser._id;
+        const hasVoted = selection.agreedUsers.includes(userId);
+
+        let newAgreedUsers = [...selection.agreedUsers];
+        if (hasVoted) {
+            newAgreedUsers = newAgreedUsers.filter(id => id !== userId);
+        } else {
+            newAgreedUsers.push(userId);
+        }
+
+        await ctx.db.patch(selection._id, { agreedUsers: newAgreedUsers });
+    },
+});
+
+export const removeSelection = mutation({
+    args: {
+        roomId: v.id("rooms"),
+        contentId: v.string(), // Convex ID
+        type: v.union(v.literal("movie"), v.literal("tv")),
+    },
+    handler: async (ctx, args) => {
+        await getOrCreateUser(ctx, true);
+
+        let tmdbId: number;
+        if (args.type === "movie") {
+            const movie = await ctx.db.get(args.contentId as Id<"movies">);
+            if (!movie) throw new Error("Movie not found");
+            tmdbId = movie.tmdbId;
+        } else {
+            const show = await ctx.db.get(args.contentId as Id<"tvShows">);
+            if (!show) throw new Error("TV Show not found");
+            tmdbId = show.tmdbId;
+        }
+
+        const selection = await ctx.db
+            .query("roomSelections")
+            .withIndex("by_room_movie", (q) => q.eq("roomId", args.roomId).eq("movieId", tmdbId))
+            .filter(q => q.eq(q.field("type"), args.type))
+            .first();
+
+        if (selection) {
+            await ctx.db.delete(selection._id);
+        }
+    },
+});
+
+export const finishVoting = mutation({
+    args: { roomId: v.id("rooms") },
+    handler: async (ctx, args) => {
+        const dbUser = await getOrCreateUser(ctx, true);
+
+        // 1. Mark user as finished
+        const roomUser = await ctx.db
+            .query("roomUsers")
+            .withIndex("by_user_room", (q) => q.eq("userId", dbUser._id).eq("roomId", args.roomId))
+            .first();
+
+        if (roomUser) {
+            await ctx.db.patch(roomUser._id, { votingFinished: true });
+        }
+
+        // 2. Check if ALL users finished
+        const allUsers = await ctx.db
+            .query("roomUsers")
+            .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+            .collect();
+
+        const allFinished = allUsers.every(u => u.votingFinished === true);
+
+        if (allFinished) {
+            // 3. Close voting and calculate matches
+            await ctx.db.patch(args.roomId, { status: "matched" });
+
+            // Get all selections
+            const selections = await ctx.db
+                .query("roomSelections")
+                .withIndex("by_room", (q) => q.eq("roomId", args.roomId))
+                .collect();
+
+            // Sort by votes (descending)
+            const ranked = selections.sort((a, b) => b.agreedUsers.length - a.agreedUsers.length);
+
+            // Insert top matches (e.g. top 5 or all that have votes)
+            // User requested "all highly voted movies". Let's insert all with at least 1 vote.
+            // Or just ALL of them, sorted? Matches usually implies "winners".
+            // Let's keep all with > 0 votes.
+            const winners = ranked.filter(s => s.agreedUsers.length > 0);
+
+            for (const s of winners) {
+                await ctx.db.insert("matches", {
+                    roomId: args.roomId,
+                    movieId: s.movieId,
+                    type: s.type,
+                    movieTitle: s.movieTitle,
+                    moviePoster: s.moviePoster,
+                    matchedAt: Date.now(),
+                });
+            }
+        }
+    }
 });
 
 export const vote = mutation({
     args: {
         roomId: v.id("rooms"),
         movieId: v.number(),
+        type: v.union(v.literal("movie"), v.literal("tv")),
         movieTitle: v.string(),
         moviePoster: v.string(),
         vote: v.union(v.literal("like"), v.literal("dislike")),
@@ -191,7 +375,6 @@ export const vote = mutation({
         const dbUser = await getOrCreateUser(ctx, true);
 
         // Record vote
-        // Note: In a real app we would check if user already voted for this movie
         const existingVote = await ctx.db
             .query("roomVotes")
             .withIndex("by_room_user", (q) => q.eq("roomId", args.roomId).eq("userId", dbUser._id))
@@ -203,11 +386,13 @@ export const vote = mutation({
                 roomId: args.roomId,
                 userId: dbUser._id,
                 movieId: args.movieId,
+                type: args.type,
                 movieTitle: args.movieTitle,
                 moviePoster: args.moviePoster,
                 vote: args.vote,
             });
         }
+
 
         if (args.vote === "like") {
             // Check for match
@@ -242,6 +427,7 @@ export const vote = mutation({
                     await ctx.db.insert("matches", {
                         roomId: args.roomId,
                         movieId: args.movieId,
+                        type: args.type,
                         movieTitle: args.movieTitle,
                         moviePoster: args.moviePoster,
                         matchedAt: Date.now(),
