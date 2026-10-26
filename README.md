@@ -58,6 +58,38 @@ TAVILY_API_KEY=your_tavily_api_key_here
    - `movie`: Movie information (if found)
    - `sources`: Array of data sources used (tmdb, google, groq)
 
+## Real-Time Group Voting Rooms ("Movie Night")
+
+CineAI features a collaborative, real-time decision-making room called **Movie Night** to end the endless "what should we watch?" argument with friends.
+
+### How It Works:
+1. **Room Creation & Code Generation** (`convex/rooms.ts`):
+   - A logged-in host creates a room with optional genre or streaming provider filters.
+   - The backend generates a unique 4-letter room code (e.g. `ABCD`) and sets up a reactive session.
+2. **Instant Joining via Code/Link**:
+   - Friends enter the code in `MovieNightLobby.tsx` or click a shared room link.
+   - Non-anonymous authentication is enforced to ensure verified participant identities.
+3. **Real-Time Reactive State**:
+   - Built on Convex's real-time WebSocket subscriptions (`getRoomState`).
+   - Every participant's screen stays 100% in sync with zero page refreshes (live user presence list, active candidate list, and vote tally).
+4. **Interactive Swiping & Candidate Voting**:
+   - **Tinder-style Swiping** (`MovieNightSwipe.tsx`): Swipe right to like or left to dislike on movie cards.
+   - **Room Selections**: Members can also suggest candidate movies and toggle agreement votes (`toggleSelectionVote`).
+5. **Instant Match Detection**:
+   - When all participants swipe "like" on the same title (or when voting concludes), the backend records a match in the `matches` table.
+   - A celebratory match modal appears simultaneously across all connected devices so the group can start watching immediately.
+
+## Future Enhancements & Roadmap
+
+- [ ] **P2P OTT Subscription Sharing & Micro-Monetization Marketplace**:
+  - A secure peer-to-peer connection hub where users can host synchronized watch parties and share access to their streaming subscriptions (Netflix, Amazon Prime Video, Disney+, etc.).
+  - **Micro-pricing system**: Account holders can set an affordable, per-stream or per-session fee, allowing viewers to access specific movies without purchasing full monthly subscriptions while letting hosts earn passive income from spare account slots.
+  - **Shared Watch Party Sync**: Synchronized video playback (play/pause/seek sync) paired with live voice and text chat rooms.
+- [ ] **Voice-Activated Search & Conversation**:
+  - Direct speech-to-speech interaction powered by Web Speech API or Whisper.
+- [ ] **Personalized AI Taste Profiles**:
+  - Long-term memory vectors to recommend movies based on past ratings, reviews, and swipe history.
+
 ### Getting API Keys
 
 - **Groq API Key**: Sign up at [console.groq.com](https://console.groq.com)
