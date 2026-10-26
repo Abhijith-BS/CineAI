@@ -1,4 +1,4 @@
-# IMDB Clone with AI Chat
+# Movie Recommendation with AI Chat
   
 This is a project built with [Chef](https://chef.convex.dev) using [Convex](https://convex.dev) as its backend.
  You can find docs about Chef with useful information like how to deploy to production [here](https://docs.convex.dev/chef).
